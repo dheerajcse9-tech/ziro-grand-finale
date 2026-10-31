@@ -6,7 +6,7 @@ from .. import db, vectorstore
 from ..embeddings import text_hash
 from .base import IngestError
 from .chunking import chunk_pdf, chunk_transcript
-from .pdf import PdfConnector
+from .pdf import PdfConnector, pdf_stats
 from .transcript import StoredTranscriptConnector
 
 log = logging.getLogger("doubtloop.ingest")
@@ -43,11 +43,16 @@ def index_resource(resource_id: str, force: bool = False) -> dict:
                     "source_id": resource_id, "source_type": r["type"], "source_name": r["title"],
                     "subject_id": r["subject_id"], "topic_id": r["topic_id"], "trust": "curated",
                     "origin": r["transcript_origin"] if r["type"] == "video" else r["origin"],
-                    "kind": "chunk", "ts_verified": True, "page": c.page, "ts_start": c.start, "ts_end": c.end, "youtube_id": r["youtube_id"],
+                    "kind": "chunk", "page": c.page, "heading": c.heading, "filename": r.get("filename"), "ts_start": c.start, "ts_end": c.end, "youtube_id": r["youtube_id"], "ts_status": "caption" if r["type"] == "video" else None,
                 },
             })
         vectorstore.upsert(r["tenant_id"], items)
-        set_status(resource_id, "indexed", f"{len(chunks)} chunks indexed.", chunk_count=len(chunks), content_hash=h)
+        detail = f"{len(chunks)} chunks indexed."
+        if r["type"] == "pdf":
+            st = pdf_stats(r["file_path"])
+            detail = (f"{len(chunks)} chunks indexed from {st['pages']} pages. {st['images']} embedded images (diagrams, charts, worked-example figures) "
+                      "are not text-searchable and were not OCR'd.")
+        set_status(resource_id, "indexed", detail, chunk_count=len(chunks), content_hash=h)
     except Exception as e:  # never claim indexed on failure
         msg = str(e) if isinstance(e, (IngestError, vectorstore.VectorStoreError)) else f"Unexpected error: {e}"
         log.warning("indexing %s failed: %s", resource_id, msg)

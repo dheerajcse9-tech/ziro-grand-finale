@@ -95,9 +95,10 @@ function Reply({ r, text, onCite, teacher }: { r?: AgentResponse; text: string; 
       {r.sources.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {r.sources.map((s, i) => (
-            <button key={i} onClick={() => onCite(s)} title={s.excerpt ?? ""} className="max-w-full truncate rounded-md border border-line bg-white px-2 py-1 text-left text-xs hover:border-accent">
-              {s.source_type === "video" ? (s.timestamp_start == null ? `▶ ${s.source_name.slice(0, 38)} · timestamp unverified` : `▶ ${s.source_name.slice(0, 38)} · ${fmtTime(s.timestamp_start)}–${fmtTime(s.timestamp_end)}`)
-                : s.source_type === "pdf" ? `📄 ${s.source_name} · p.${s.page}` : "✓ Teacher-approved resolution"}
+            <button key={i} onClick={() => onCite(s)} title={(s.timestamp_status === "unverified" ? "Timestamp supplied by the course team and pending independent verification. " : "") + (s.heading ? s.heading + " — " : "") + (s.excerpt ?? "")} className="max-w-full truncate rounded-md border border-line bg-white px-2 py-1 text-left text-xs hover:border-accent">
+              {s.source_type === "video"
+                ? `▶ ${s.source_name.slice(0, 34)} · ${fmtTime(s.timestamp_start)}–${fmtTime(s.timestamp_end)}${s.timestamp_status === "unverified" ? " · ⚠ unverified timestamp" : ""}`
+                : s.source_type === "pdf" ? `📄 ${s.filename ?? s.source_name} · p.${s.page}` : "✓ Teacher-approved resolution"}
             </button>
           ))}
         </div>

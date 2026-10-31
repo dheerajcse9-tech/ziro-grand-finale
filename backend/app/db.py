@@ -58,6 +58,10 @@ def init_db() -> None:
         c.executescript(SCHEMA)
         if "duration_s" not in [r[1] for r in c.execute("PRAGMA table_info(resources)")]:
             c.execute("ALTER TABLE resources ADD COLUMN duration_s REAL")
+        if "filename" not in [r[1] for r in c.execute("PRAGMA table_info(resources)")]:
+            c.execute("ALTER TABLE resources ADD COLUMN filename TEXT")
+        if "timestamp_source" not in [r[1] for r in c.execute("PRAGMA table_info(video_segments)")]:
+            c.execute("ALTER TABLE video_segments ADD COLUMN timestamp_source TEXT DEFAULT ''")
 
 
 def rows(sql: str, params: Iterable[Any] = ()) -> list[dict]:

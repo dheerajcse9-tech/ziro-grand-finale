@@ -16,11 +16,11 @@ def chunk_pdf(segments: list[Segment]) -> list[Segment]:
         cur = ""
         for s in sents:
             if cur and len(cur) + len(s) + 1 > PDF_CHUNK:
-                out.append(Segment(text=cur, page=seg.page))
+                out.append(Segment(text=cur, page=seg.page, heading=seg.heading))
                 cur = cur[-PDF_OVERLAP:].split(" ", 1)[-1] if PDF_OVERLAP else ""
             cur = f"{cur} {s}".strip()
         if cur:
-            out.append(Segment(text=cur, page=seg.page))
+            out.append(Segment(text=cur, page=seg.page, heading=seg.heading))
     return out
 
 

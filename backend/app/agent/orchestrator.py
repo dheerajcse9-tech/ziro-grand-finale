@@ -17,15 +17,30 @@ MAX_HISTORY = 6
 def to_source(e: dict) -> Source:
     st = e["source_type"]
     ts = e.get("ts_start")
-    if e.get("ts_verified") is False:  # unverified timestamps are never shown as exact citations
-        return Source(source_type=st, source_id=e["source_id"], source_name=e["source_name"], youtube_id=e.get("youtube_id"),
-                      url=f"https://www.youtube.com/watch?v={e['youtube_id']}" if e.get("youtube_id") else None, trust=e.get("trust", "curated"),
-                      origin="timestamp_unverified", excerpt=e["text"][:220].strip(), chunk_id=e.get("chunk_id"))
+    is_video = st == "video"
     return Source(
-        source_type=st, source_id=e["source_id"], source_name=e["source_name"], page=e.get("page"),
-        timestamp_start=ts, timestamp_end=e.get("ts_end"), youtube_id=e.get("youtube_id"),
-        url=f"https://www.youtube.com/watch?v={e['youtube_id']}&t={int(ts or 0)}" if st == "video" and e.get("youtube_id") else None,
+        source_type=st, source_id=e["source_id"], source_name=e["source_name"], page=e.get("page"), filename=e.get("filename"),
+        heading=e.get("heading"), timestamp_start=ts, timestamp_end=e.get("ts_end"), timestamp_status=e.get("ts_status") if is_video else None,
+        youtube_id=e.get("youtube_id"), url=f"https://www.youtube.com/watch?v={e['youtube_id']}&t={int(ts or 0)}" if is_video and e.get("youtube_id") else None,
         trust=e.get("trust", "curated"), origin=e.get("origin"), excerpt=e["text"][:220].strip(), chunk_id=e.get("chunk_id"))
+
+
+def diversify(ranked: list[dict], n: int) -> list[dict]:
+    """Top-n by rank, but guarantee every source type that has relevant candidates is represented (e.g. a PDF page next to lecture captions)."""
+    top = ranked[:n]
+    for st in dict.fromkeys(e["source_type"] for e in ranked):
+        if all(e["source_type"] != st for e in top):
+            best = next(e for e in ranked if e["source_type"] == st)
+            counts = {t: sum(1 for e in top if e["source_type"] == t) for t in {e["source_type"] for e in top}}
+            drop = next((i for i in range(len(top) - 1, -1, -1) if counts[top[i]["source_type"]] > 1), None)
+            if drop is not None:
+                top[drop] = best
+    return sorted(top, key=ranked.index)
+
+
+def is_pointer(e: dict) -> bool:
+    """A lecture-segment chunk with no explanation/keywords/transcript only says *where* a topic is covered; it cannot support an answer."""
+    return e.get("kind") == "segment" and not e.get("has_content")
 
 
 def dedupe_sources(items: list[Source]) -> list[Source]:
@@ -121,17 +136,22 @@ class Orchestrator:
                 continue
             ev.append(h)
         # hybrid rank: semantic similarity + IDF-weighted lexical coverage of the question's key terms (+ small active-topic boost)
-        ev.sort(key=lambda h: -(h["similarity"] + 0.3 * tu.weighted_coverage(qterms, h["text"], idf) + (0.03 if req.topic_id and h.get("topic_id") == req.topic_id else 0)))
-        ev = ev[:5]
+        ev.sort(key=lambda h: -(h["similarity"] + 0.3 * tu.weighted_coverage(qterms, h["text"], idf) + 0.3 * tu.phrase_bonus(question, h["text"], h.get("heading")) + cfg.source_weights.get(h["source_type"], 0) + (cfg.topic_boost if req.topic_id and h.get("topic_id") == req.topic_id else 0)))
+        pointers = [e for e in ev if is_pointer(e)][:2]
+        ev = diversify([e for e in ev if not is_pointer(e)], 5)
         for i, e in enumerate(ev):
             e["ref"] = f"E{i + 1}"
         cands = [dict(s, ref=f"R{i + 1}") for i, s in enumerate(solved) if s["similarity"] >= t.reuse_similarity - 0.12][:2]
-        step("evidence", f"{len(ev)} relevant chunks, {len(cands)} solved-doubt candidates" + (f", {quarantined} untrusted chunk(s) quarantined (injection patterns)" if quarantined else ""), ok=not quarantined)
+        step("evidence", f"{len(ev)} relevant chunks, {len(pointers)} lecture-segment pointers, {len(cands)} solved-doubt candidates" + (f", {quarantined} untrusted chunk(s) quarantined (injection patterns)" if quarantined else ""), ok=not quarantined)
         if ev or cands:
             a = llm("assess", question, ev, cands, cfg)
         else:
             a = {"supported": False, "coverage": 0.0, "supporting_ids": [], "contradiction": False, "contradiction_detail": None, "reuse_ids": []}
         supporting = [e for e in ev if e["ref"] in a["supporting_ids"]] if a["supported"] else []
+        # keep only chunks whose (IDF-weighted) coverage is close to the best chunk of the same source type, so off-topic chunks are neither composed from nor cited
+        wc = {e["ref"]: tu.weighted_coverage(qterms, e["text"], idf) + 0.5 * tu.phrase_bonus(question, e["text"], e.get("heading")) for e in supporting}
+        best = {st: max(wc[e["ref"]] for e in supporting if e["source_type"] == st) for st in {e["source_type"] for e in supporting}}
+        supporting = [e for e in supporting if wc[e["ref"]] >= 0.6 * best[e["source_type"]]]
         reuse_c = max((c for c in cands if c["ref"] in a["reuse_ids"]), key=lambda c: c["similarity"], default=None)
         step("assess", f"supported={a['supported']}; coverage={a['coverage']}; supporting={len(supporting)}; contradiction={a['contradiction']}; reuse={reuse_c['resolution_id'] if reuse_c else None}")
 
@@ -149,7 +169,8 @@ class Orchestrator:
                               trust="teacher_approved", origin="teacher", excerpt=reuse_c["question"][:220], chunk_id=f"res-{reuse_c['resolution_id']}-q")]
             step("execute", f"reused teacher-approved resolution #{reuse_c['resolution_id']} (approved by {reuse_c['approved_by']})")
         elif d.decision == "ANSWER":
-            c = llm("compose", question, supporting[:4], cfg)
+            comp = sorted(supporting[:4], key=lambda e: (e["source_type"] == "video", -wc[e["ref"]]))  # written sources first (stable)
+            c = llm("compose", question, comp, cfg)
             valid_refs = {e["ref"] for e in supporting}
             cited = [r for r in c["cited_ids"] if r in valid_refs] or [e["ref"] for e in supporting[:3]]
             if not c["answer"]:
@@ -157,7 +178,12 @@ class Orchestrator:
                 step("execute", "composition refused: evidence insufficient -> escalating", ok=False)
             else:
                 answer, answered_from = c["answer"], "evidence"
-                sources = dedupe_sources([to_source(e) for e in supporting if e["ref"] in cited])
+                # cited evidence first, then up to 2 relevant lecture segments as "watch this part" pointers
+                corroborating = []  # best additional supporting chunk per source type, so answers cite both page and lecture
+                for st in dict.fromkeys(e["source_type"] for e in supporting):
+                    if not any(e["source_type"] == st and e["ref"] in cited for e in supporting):
+                        corroborating.append(max((e for e in supporting if e["source_type"] == st), key=lambda e: wc[e["ref"]]))
+                sources = dedupe_sources([to_source(e) for e in supporting if e["ref"] in cited] + [to_source(e) for e in corroborating] + [to_source(e) for e in pointers])
                 step("execute", f"answer composed from {len(sources)} cited source(s)")
 
         resp = AgentResponse(decision=d.decision, answer=answer, confidence=d.confidence, sources=sources, reason=d.reason, reason_code=d.code,

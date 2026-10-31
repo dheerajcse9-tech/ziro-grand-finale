@@ -12,6 +12,7 @@ class Segment:
     page: int | None = None
     start: float | None = None
     end: float | None = None
+    heading: str | None = None
 
 
 class Connector(Protocol):

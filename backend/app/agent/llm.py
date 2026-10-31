@@ -128,7 +128,7 @@ class LocalProvider(LLMProvider):
     def assess(self, question, evidence, solved, cfg):
         qt = tu.terms(question)
         cov = tu.coverage(qt, [e["text"] for e in evidence])
-        support = [e["ref"] for e in evidence if tu.terms(e["text"]) & qt][:3]
+        support = [e["ref"] for e in evidence if tu.terms(e["text"]) & qt][:5]
         contra = tu.find_contradiction(evidence)
         t = cfg.thresholds
         reuse = [s["ref"] for s in solved if s["similarity"] >= t.reuse_similarity or
@@ -143,10 +143,10 @@ class LocalProvider(LLMProvider):
         for rank, e in enumerate(evidence[:2]):  # evidence is already hybrid-ranked; use the best two chunks
             sents = tu.sentences(e["text"])
             scored = sorted(((-sum(w for q, w in idf.items() if q in tu.terms(s)), pos) for pos, s in enumerate(sents)))
-            best = [pos for sc, pos in scored if sc < 0][:3]
+            best = [pos for sc, pos in scored if sc < 0][:5]
             keep = sorted({p for pos in best[:1] for p in (pos - 1, pos, pos + 1) if 0 <= p < len(sents)} | set(best))
             for p_ in keep:
-                if sents[p_] not in seen and total + len(sents[p_]) <= 700:
+                if sents[p_] not in seen and total + len(sents[p_]) <= 950:
                     seen.add(sents[p_]); chosen.append((rank, p_, sents[p_])); total += len(sents[p_])
             if keep and e["ref"] not in cited:
                 cited.append(e["ref"])

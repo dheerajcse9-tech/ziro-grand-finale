@@ -34,13 +34,28 @@ def terms(t: str) -> set[str]:
     return {stem(w) for w in tokens(t) if w not in STOP and len(w) > 2 and w not in NUMBER_WORDS}
 
 
+def term_bigrams(t: str) -> set[tuple[str, str]]:
+    """Adjacent content-term pairs (stop words dropped): 'hold and wait' -> (hold, wait)."""
+    seq = [stem(w) for w in tokens(t) if w not in STOP and len(w) > 2 and w not in NUMBER_WORDS]
+    return set(zip(seq, seq[1:]))
+
+
+def phrase_bonus(question: str, text: str, heading: str | None = None) -> float:
+    qb = term_bigrams(question)
+    if not qb:
+        return 0.0
+    hit = len(qb & term_bigrams(text)) / len(qb)
+    head = coverage(terms(question), [heading]) if heading else 0.0
+    return min(1.0, hit + 0.5 * head)
+
+
 def sentences(t: str) -> list[str]:
     return [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", t) if len(s.strip()) > 15]
 
 
 def term_match(q: str, have: set[str]) -> bool:
     """Exact stem match, or one stem containing the other when they are close in length (schedul/schedule), never 'every'/'everyday'."""
-    return q in have or any(min(len(q), len(h)) >= 5 and (h.startswith(q) or q.startswith(h)) and min(len(q), len(h)) / max(len(q), len(h)) >= 0.75 for h in have)
+    return q in have or any(min(len(q), len(h)) >= 5 and (h.startswith(q) or q.startswith(h)) and min(len(q), len(h)) / max(len(q), len(h)) >= 0.7 for h in have)
 
 
 def coverage(question_terms: set[str], texts: list[str]) -> float:

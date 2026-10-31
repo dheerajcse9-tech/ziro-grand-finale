@@ -69,8 +69,8 @@ def create_pdf_resource(tenant_id: str, subject_id: str, topic_id: str, title: s
     d.mkdir(parents=True, exist_ok=True)
     path = d / f"{rid}.pdf"
     path.write_bytes(data)
-    db.execute("INSERT INTO resources(id,tenant_id,subject_id,topic_id,type,title,file_path,origin,attribution,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-               (rid, tenant_id, subject_id, topic_id, "pdf", title, str(path), origin, attribution, "pending", db.now(), db.now()))
+    db.execute("INSERT INTO resources(id,tenant_id,subject_id,topic_id,type,title,file_path,origin,attribution,status,created_at,updated_at,filename) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+               (rid, tenant_id, subject_id, topic_id, "pdf", title, str(path), origin, attribution, "pending", db.now(), db.now(), filename))
     return db.row("SELECT * FROM resources WHERE id=?", (rid,))
 
 
@@ -88,7 +88,7 @@ def create_video_resource(tenant_id: str, subject_id: str, topic_id: str, url: s
 
 def public_resource(r: dict) -> dict:
     return {k: r[k] for k in ("id", "subject_id", "topic_id", "type", "title", "url", "youtube_id", "origin", "transcript_origin",
-                              "attribution", "status", "status_detail", "chunk_count", "duration_s")} | {
+                              "attribution", "status", "status_detail", "chunk_count", "duration_s", "filename")} | {
         "file_url": f"/api/v1/resources/{r['id']}/file" if r["type"] == "pdf" else None}
 
 

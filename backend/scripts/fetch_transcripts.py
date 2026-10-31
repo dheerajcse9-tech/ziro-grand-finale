@@ -1,27 +1,23 @@
-"""One-off: discover/verify seed videos via yt-dlp + oEmbed and save real YouTube captions as seed transcripts."""
-import json, sys
+"""Fetch real YouTube captions for the videos in seed/os_dataset.json into the git-ignored seed/transcripts/ folder
+and verify each video id via oEmbed. Captions are third-party content, so they are not committed."""
+import json
 from pathlib import Path
+
 import httpx
 from youtube_transcript_api import YouTubeTranscriptApi
 
 SEED = Path(__file__).resolve().parent.parent / "seed"
-VIDEOS = [  # (topic_id, youtube_id)
-    ("os-process-management", "2dJdHMpCLIg"),
-    ("os-cpu-scheduling", "WYo1SpUh9FI"),
-    ("os-cpu-scheduling", sys.argv[1] if len(sys.argv) > 1 else None),
-    ("os-deadlocks", "rWFH6PLOIEI"),
-    ("os-memory-management", "6c-mOFZwP_8"),
-]
-api, out = YouTubeTranscriptApi(), []
-for topic, vid in VIDEOS:
-    if not vid:
-        continue
+(SEED / "transcripts").mkdir(exist_ok=True)
+api = YouTubeTranscriptApi()
+for v in json.loads((SEED / "os_dataset.json").read_text())["videos"]:
+    vid = v["youtube_id"]
     meta = httpx.get("https://www.youtube.com/oembed", params={"url": f"https://www.youtube.com/watch?v={vid}", "format": "json"}, timeout=20)
-    meta.raise_for_status()
-    m = meta.json()
-    t = api.fetch(vid, languages=["en"])
-    segs = [{"start": round(s.start, 2), "end": round(s.start + s.duration, 2), "text": s.text.replace("\n", " ").strip()} for s in t.snippets]
-    (SEED / "transcripts" / f"{vid}.json").write_text(json.dumps(segs, ensure_ascii=False))
-    out.append({"topic_id": topic, "youtube_id": vid, "title": m["title"], "channel": m["author_name"], "segments": len(segs), "duration_s": segs[-1]["end"]})
-    print(out[-1])
-(SEED / "videos.json").write_text(json.dumps(out, indent=2, ensure_ascii=False))
+    title = meta.json().get("title") if meta.status_code == 200 else None
+    try:
+        t = api.fetch(vid, languages=["en"])
+        segs = [{"start": round(s.start, 2), "end": round(s.start + s.duration, 2), "text": s.text.replace("\n", " ").strip()} for s in t.snippets]
+        (SEED / "transcripts" / f"{vid}.json").write_text(json.dumps(segs, ensure_ascii=False))
+        cap = f"captions saved ({len(segs)} lines, last caption ends {segs[-1]['end']:.0f}s)"
+    except Exception as e:
+        cap = f"NO captions ({type(e).__name__})"
+    print(f"{vid} oembed={meta.status_code} title_match={title == v['title'] or (title or '')[:20] == v['title'][:20]} duration_supplied={v.get('duration_s')} | {cap}")

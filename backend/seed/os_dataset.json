@@ -1,0 +1,410 @@
+{
+ "subject": {
+  "id": "os",
+  "name": "Operating Systems",
+  "description": "Core operating systems concepts: processes, scheduling, synchronization, deadlocks and memory."
+ },
+ "topics": [
+  {
+   "id": "os-process-management",
+   "name": "Process Management",
+   "description": "Process lifecycle, process states, schedulers, processes and threads.",
+   "questions": [
+    "What are the five states in a process lifecycle?",
+    "What is a Process Control Block?",
+    "What is the difference between long-term, short-term and medium-term schedulers?",
+    "What happens during a context switch?"
+   ],
+   "pdf": {
+    "filename": "Process-Management.pdf",
+    "title": "Process Management"
+   }
+  },
+  {
+   "id": "os-cpu-scheduling",
+   "name": "CPU Scheduling",
+   "description": "Preemptive and non-preemptive scheduling, scheduling algorithms.",
+   "questions": [
+    "What is the difference between preemptive and non-preemptive scheduling?",
+    "What is the convoy effect in FCFS?",
+    "How does the time quantum affect Round Robin?",
+    "What is the difference between SJF and SRTF?"
+   ],
+   "pdf": {
+    "filename": "CPU-Scheduling-and-Algorithm-.pdf",
+    "title": "CPU Scheduling and Algorithm"
+   }
+  },
+  {
+   "id": "os-process-synchronization",
+   "name": "Process Synchronization",
+   "description": "Independent and cooperative processes, synchronization, race conditions.",
+   "questions": [
+    "What is a race condition?",
+    "What is the critical section problem?",
+    "Why does the lock variable mechanism fail to guarantee mutual exclusion?",
+    "What is a semaphore?"
+   ],
+   "pdf": {
+    "filename": "synchronization.pdf",
+    "title": "Process Synchronization"
+   }
+  },
+  {
+   "id": "os-deadlocks",
+   "name": "Deadlocks",
+   "description": "Deadlock definition, necessary conditions, prevention, avoidance and detection.",
+   "questions": [
+    "What are the four necessary conditions for deadlock?",
+    "Explain mutual exclusion and hold and wait.",
+    "What is a safe state?",
+    "What data structures does the Banker's algorithm use?"
+   ],
+   "pdf": {
+    "filename": "Deadlocks.pdf",
+    "title": "Deadlocks"
+   }
+  },
+  {
+   "id": "os-memory-management",
+   "name": "Memory Management",
+   "description": "Memory allocation, paging, segmentation, virtual memory and page replacement.",
+   "questions": [
+    "Explain paging and segmentation.",
+    "What is the degree of multiprogramming?",
+    "What is the difference between FIFO and LRU page replacement?",
+    "Explain virtual memory."
+   ],
+   "pdf": {
+    "filename": "Memory-management-.pdf",
+    "title": "Memory Management"
+   }
+  }
+ ],
+ "videos": [
+  {
+   "youtube_id": "2dJdHMpCLIg",
+   "topic_id": "os-process-management",
+   "title": "L-1.5: Process States in Operating System| Schedulers(Long term,Short term,Medium term)",
+   "channel": "Gate Smashers",
+   "duration_s": 1254,
+   "segments": [
+    {
+     "title": "Introduction",
+     "topic": "Process Life Cycle",
+     "subtopic": "Introduction",
+     "start": 0,
+     "end": 81,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "New State",
+     "topic": "Process States",
+     "subtopic": "New State",
+     "start": 81,
+     "end": 137,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Ready State",
+     "topic": "Process States",
+     "subtopic": "Ready State",
+     "start": 137,
+     "end": 205,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Long Term Scheduler",
+     "topic": "Schedulers",
+     "subtopic": "Long Term Scheduler",
+     "start": 205,
+     "end": 274,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Running State",
+     "topic": "Process States",
+     "subtopic": "Running State",
+     "start": 274,
+     "end": 395,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Terminate State",
+     "topic": "Process States",
+     "subtopic": "Terminate State",
+     "start": 395,
+     "end": 444,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Preemption Logic",
+     "topic": "Process Scheduling",
+     "subtopic": "Preemption Logic",
+     "start": 444,
+     "end": 581,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Short Term Scheduler",
+     "topic": "Schedulers",
+     "subtopic": "Short Term Scheduler",
+     "start": 581,
+     "end": 667,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Wait / Block State",
+     "topic": "Process States",
+     "subtopic": "Wait / Block State",
+     "start": 667,
+     "end": 844,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Worst Case Scenario",
+     "topic": "Process Management",
+     "subtopic": "Worst Case Scenario",
+     "start": 844,
+     "end": 939,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Medium Term Scheduler",
+     "topic": "Schedulers",
+     "subtopic": "Medium Term Scheduler",
+     "start": 939,
+     "end": 968,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Backing Store",
+     "topic": "Memory Management",
+     "subtopic": "Backing Store",
+     "start": 1049,
+     "end": 1122,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "OS Implementation",
+     "topic": "Real-world Application",
+     "subtopic": "OS Implementation",
+     "start": 1186,
+     "end": 1254,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    }
+   ]
+  },
+  {
+   "youtube_id": "zFnrUVqtiOY",
+   "topic_id": "os-cpu-scheduling",
+   "title": "L-2.1: Process Scheduling Algorithms (Preemption Vs Non-Preemption) | CPU Scheduling in OS",
+   "channel": "Gate Smashers",
+   "duration_s": 631,
+   "segments": [
+    {
+     "title": "Course Overview",
+     "topic": "Introduction",
+     "subtopic": "Course Overview",
+     "start": 0,
+     "end": 119,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Preemptive Scheduling",
+     "topic": "CPU Scheduling",
+     "subtopic": "Preemptive Scheduling",
+     "start": 120,
+     "end": 168,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Non-preemptive Scheduling",
+     "topic": "CPU Scheduling",
+     "subtopic": "Non-preemptive Scheduling",
+     "start": 169,
+     "end": 227,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Reason 1: Scheduling Decisions",
+     "topic": "Scheduling Logic",
+     "subtopic": "Reason 1: Scheduling Decisions",
+     "start": 228,
+     "end": 412,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Reason 2: Resource Management",
+     "topic": "Scheduling Logic",
+     "subtopic": "Reason 2: Resource Management",
+     "start": 413,
+     "end": 631,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    }
+   ]
+  },
+  {
+   "youtube_id": "3Eaw1SSIqRg",
+   "topic_id": "os-process-synchronization",
+   "title": "L-3.1: Process Synchronization | Process Types | Race Condition | Operating System-1",
+   "channel": "Gate Smashers",
+   "duration_s": null,
+   "segments": [
+    {
+     "title": "Introduction",
+     "topic": "Process Synchronization",
+     "subtopic": "Introduction",
+     "start": 0,
+     "end": 351,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Definition and Example",
+     "topic": "Race Condition",
+     "subtopic": "Definition and Example",
+     "start": 352,
+     "end": 1022,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    }
+   ]
+  },
+  {
+   "youtube_id": "rWFH6PLOIEI",
+   "topic_id": "os-deadlocks",
+   "title": "L-4.1: DEADLOCK concept | Example | Necessary condition | Operating System",
+   "channel": "Gate Smashers",
+   "duration_s": null,
+   "segments": [
+    {
+     "title": "Definition and Examples",
+     "topic": "Deadlock",
+     "subtopic": "Definition and Examples",
+     "start": 0,
+     "end": 215,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Resource Allocation Example",
+     "topic": "Deadlock",
+     "subtopic": "Resource Allocation Example",
+     "start": 216,
+     "end": 340,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Necessary Conditions",
+     "topic": "Deadlock",
+     "subtopic": "Necessary Conditions",
+     "start": 340,
+     "end": 405,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Mutual Exclusion",
+     "topic": "Deadlock",
+     "subtopic": "Mutual Exclusion",
+     "start": 406,
+     "end": 479,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "No Preemption",
+     "topic": "Deadlock",
+     "subtopic": "No Preemption",
+     "start": 480,
+     "end": 530,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Hold and Wait",
+     "topic": "Deadlock",
+     "subtopic": "Hold and Wait",
+     "start": 531,
+     "end": 580,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Circular Wait",
+     "topic": "Deadlock",
+     "subtopic": "Circular Wait",
+     "start": 581,
+     "end": 711,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Summary",
+     "topic": "Conclusion",
+     "subtopic": "Summary",
+     "start": 712,
+     "end": 741,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    }
+   ]
+  },
+  {
+   "youtube_id": "eESIFJz7mJw",
+   "topic_id": "os-memory-management",
+   "title": "L-5.1: Memory Management and Degree of Multiprogramming | Operating System",
+   "channel": "Gate Smashers",
+   "duration_s": 1421,
+   "segments": [
+    {
+     "title": "Memory Management Definition",
+     "topic": "Introduction",
+     "subtopic": "Memory Management Definition",
+     "start": 0,
+     "end": 347,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Degree of Multiprogramming",
+     "topic": "Multiprogramming",
+     "subtopic": "Degree of Multiprogramming",
+     "start": 348,
+     "end": 553,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    },
+    {
+     "title": "Practical Example",
+     "topic": "Numerical",
+     "subtopic": "Practical Example",
+     "start": 554,
+     "end": 1421,
+     "verification_status": "unverified",
+     "timestamp_source": "user-supplied (collected with YouTube Ask Gemini); pending independent verification"
+    }
+   ]
+  }
+ ]
+}

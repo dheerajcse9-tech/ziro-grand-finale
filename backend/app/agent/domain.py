@@ -31,6 +31,9 @@ class DomainConfig(BaseModel):
     escalation: EscalationPolicy = EscalationPolicy()
     human_approval: HumanApproval = HumanApproval()
     tools: list[str] = Field(default_factory=lambda: ["search_knowledge_base", "search_solved_doubts", "create_escalation", "save_approved_resolution"])
+    source_weights: dict[str, float] = Field(default_factory=lambda: {"resolution": 0.08, "pdf": 0.06, "video": 0.0},
+                                             description="Ranking prior per source type (written notes and approved answers are cleaner evidence than auto-captions)")
+    topic_boost: float = Field(0.08, ge=0, le=0.3, description="Ranking boost for chunks from the student's active topic (a hint, never a filter)")
     top_k: int = Field(6, ge=1, le=15)
     clarification_enabled: bool = True
 

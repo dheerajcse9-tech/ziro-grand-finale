@@ -23,23 +23,24 @@ def ask(c, q, sid, tenant=T, **kw):
 
 
 def test_answer_with_page_citation(c):
-    r = ask(c, "What is the convoy effect in FCFS scheduling?", "s-answer")
+    r = ask(c, "What is a race condition?", "s-answer")
     assert r["decision"] == "ANSWER" and r["answered_from"] == "evidence" and r["confidence"] > 0.5
     pdf = [s for s in r["sources"] if s["source_type"] == "pdf"]
-    assert pdf and pdf[0]["page"] == 1 and "CPU Scheduling" in pdf[0]["source_name"]
+    assert pdf and pdf[0]["page"] == 1 and pdf[0]["filename"] == "synchronization.pdf"
 
 
 def test_video_citation_has_timestamps(c):
     r = ask(c, "What are the four necessary conditions for deadlock?", "s-video")
     assert r["decision"] == "ANSWER"
     v = [s for s in r["sources"] if s["source_type"] == "video"]
-    assert v and v[0]["timestamp_end"] > v[0]["timestamp_start"] >= 0 and f"t={int(v[0]['timestamp_start'])}" in v[0]["url"]
+    assert v and all(x["timestamp_end"] > x["timestamp_start"] >= 0 and f"v={x['youtube_id']}&t={int(x['timestamp_start'])}" in x["url"] for x in v)
+    assert {x["timestamp_status"] for x in v} <= {"caption", "unverified", "verified"}
 
 
 def test_clarify_then_continue_same_workflow(c):
     r = ask(c, "Explain it again.", "s-clar")
     assert r["decision"] == "CLARIFY" and r["clarification_question"]
-    r2 = ask(c, "I mean the thrashing in virtual memory", "s-clar")
+    r2 = ask(c, "I mean the Banker's algorithm", "s-clar")
     assert r2["decision"] == "ANSWER" and any(s["source_type"] == "pdf" for s in r2["sources"])
     assert any("Explain it again" in st["detail"] for st in r2["trace"] if st["step"] == "understand")
 

@@ -10,3 +10,5 @@ node_modules/
 .next/
 frontend/.env.local
 .DS_Store
+backend/seed/pdfs/
+backend/seed/transcripts/

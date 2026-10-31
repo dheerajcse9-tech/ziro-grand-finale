@@ -22,6 +22,9 @@ class Source(BaseModel):
     timestamp_end: float | None = None
     youtube_id: str | None = None
     url: str | None = None
+    filename: str | None = None
+    heading: str | None = None
+    timestamp_status: str | None = Field(default=None, description="video only: 'caption' (from caption timing), 'verified', or 'unverified' (user-supplied, pending verification)")
     trust: str = "curated"
     origin: str | None = None
     excerpt: str | None = None

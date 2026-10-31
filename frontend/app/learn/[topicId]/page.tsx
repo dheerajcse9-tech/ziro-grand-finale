@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 import Tutor from "@/components/Tutor";
-import { api, fileUrl, fmtTime, studentId, type Resource, type Source, type Subject, type Topic } from "@/lib/api";
+import { api, fileUrl, fmtTime, studentId, type Resource, type Segment, type Source, type Subject, type Topic } from "@/lib/api";
 
 type Doubt = { question: string; decision: string; solved: boolean; created_at: number };
 
@@ -24,7 +24,8 @@ function Workspace() {
   const [topic, setTopic] = useState<Topic | null>(null);
   const [video, setVideo] = useState<{ id: string; start: number; n: number } | null>(null);
   const [pdf, setPdf] = useState<{ id: string; page: number } | null>(null);
-  const [tab, setTab] = useState<"notes" | "materials" | "doubts">("notes");
+  const [tab, setTab] = useState<"notes" | "segments" | "materials" | "doubts">("notes");
+  const [segs, setSegs] = useState<Record<string, Segment[]>>({});
   const [doubts, setDoubts] = useState<Doubt[]>([]);
   const [error, setError] = useState("");
 
@@ -41,6 +42,7 @@ function Workspace() {
       if (v?.youtube_id) setVideo({ id: v.youtube_id, start: 0, n: 0 });
       if (p) setPdf({ id: p.id, page: 1 });
       mark(topicId, "lecture");
+      t.resources.filter((r) => r.type === "video").forEach((r) => api<Segment[]>(`/api/v1/resources/${r.id}/segments`).then((x) => setSegs((p) => ({ ...p, [r.id]: x }))).catch(() => {}));
     }).catch((e) => setError(e.message));
     loadDoubts();
   }, [topicId, loadDoubts]);
@@ -86,7 +88,7 @@ function Workspace() {
 
           <div className="card">
             <div className="flex gap-1 border-b border-line p-2 text-sm">
-              {([["notes", "Notes (PDF)"], ["materials", "Study materials"], ["doubts", `My doubts (${doubts.length})`]] as const).map(([k, l]) => (
+              {([["notes", "Notes (PDF)"], ["segments", "Lecture segments"], ["materials", "Study materials"], ["doubts", `My doubts (${doubts.length})`]] as const).map(([k, l]) => (
                 <button key={k} onClick={() => { setTab(k); if (k === "notes") mark(topicId, "notes"); if (k === "doubts") loadDoubts(); }} className={`rounded-md px-3 py-1.5 ${tab === k ? "bg-accent-soft font-medium text-accent" : "text-muted"}`}>{l}</button>
               ))}
             </div>
@@ -104,11 +106,32 @@ function Workspace() {
                 ) : <p className="p-3 text-sm text-muted">No PDF notes attached to this topic.</p>}
               </div>
             )}
+            {tab === "segments" && (
+              <div className="divide-y divide-line">
+                {videos.map((v) => (
+                  <div key={v.id} className="p-4">
+                    <p className="text-sm font-medium">▶ {v.title}</p>
+                    <ul className="mt-2 space-y-1">
+                      {(segs[v.id] ?? []).map((g) => (
+                        <li key={g.id}>
+                          <button onClick={() => { setVideo((x) => ({ id: v.youtube_id!, start: Math.floor(g.start_s), n: (x?.n ?? 0) + 1 })); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-sm hover:bg-bg">
+                            <span><span className="font-mono text-xs text-muted">{fmtTime(g.start_s)}–{fmtTime(g.end_s)}</span> {g.topic} · {g.subtopic || g.title}</span>
+                            <span title={g.timestamp_source} className={`pill shrink-0 ${g.verification === "verified" ? "bg-accent-soft text-accent" : "bg-amber-100 text-amber-800"}`}>{g.verification === "verified" ? "verified" : "unverified"}</span>
+                          </button>
+                        </li>
+                      ))}
+                      {!(segs[v.id] ?? []).length && <li className="px-2 text-sm text-muted">No segment metadata imported for this video.</li>}
+                    </ul>
+                  </div>
+                ))}
+                <p className="p-4 text-xs text-muted">“Unverified” timestamps were supplied by the course team and are pending independent verification; the link still seeks the video, but treat the exact start time as approximate.</p>
+              </div>
+            )}
             {tab === "materials" && (
               <ul className="divide-y divide-line">
                 {topic.resources.map((r: Resource) => (
                   <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
-                    <div><p className="font-medium">{r.type === "video" ? "▶" : "📄"} {r.title}</p><p className="text-xs text-muted">{r.attribution || r.origin}</p></div>
+                    <div><p className="font-medium">{r.type === "video" ? "▶" : "📄"} {r.title}</p><p className="text-xs text-muted">{r.filename ? `${r.filename} · ` : ""}{r.attribution || r.origin}</p></div>
                     <span className={`pill ${r.status === "indexed" ? "bg-accent-soft text-accent" : "bg-amber-100 text-amber-800"}`}>{r.status === "indexed" ? `Indexed · ${r.chunk_count} chunks` : r.status.replace("_", " ")}</span>
                   </li>
                 ))}

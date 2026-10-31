@@ -24,4 +24,6 @@ def test_segments_import_idempotent_reuse_and_citation_rules():
         assert a["decision"] == "ANSWER" and vid and vid[0]["timestamp_start"] == 10 and "t=10" in vid[0]["url"]  # verified -> exact link
         b = ask("What does zorblax quintessence frobnication mean?", "seg2")
         ub = [s for s in b["sources"] if s["source_id"] == v["id"]]
-        assert ub and ub[0]["timestamp_start"] is None and "t=" not in ub[0]["url"] and ub[0]["origin"] == "timestamp_unverified"  # unverified -> no exact timestamp
+        # user-supplied/unverified timestamps are still linkable but explicitly flagged, never presented as verified
+        assert ub and ub[0]["timestamp_start"] == 70 and "t=70" in ub[0]["url"] and ub[0]["timestamp_status"] == "unverified"
+        assert vid[0]["timestamp_status"] == "verified"

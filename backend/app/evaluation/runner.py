@@ -4,7 +4,7 @@ import threading
 import time
 from pathlib import Path
 
-import fitz
+import pymupdf as fitz
 
 from .. import db, seed_loader, vectorstore
 from ..agent import memory
@@ -41,13 +41,19 @@ def _valid_source(s: dict) -> bool:
     if s["source_type"] == "pdf":
         with fitz.open(r["file_path"]) as d:
             return s.get("page") is not None and 1 <= s["page"] <= d.page_count
-    segs = json.loads(Path(r["file_path"]).read_text())
     a, b = s.get("timestamp_start"), s.get("timestamp_end")
-    return a is not None and b is not None and 0 <= a < b <= segs[-1]["end"] + 1
+    if a is None or b is None or not 0 <= a < b:
+        return False
+    if s.get("origin") == "segment_metadata":  # must match an imported segment exactly
+        return bool(db.row("SELECT 1 FROM video_segments WHERE resource_id=? AND start_s=? AND end_s=?", (s["source_id"], a, b)))
+    if r["duration_s"] and b > r["duration_s"] + 1:
+        return False
+    segs = json.loads(Path(r["file_path"]).read_text()) if r["file_path"] else []
+    return bool(segs) and b <= segs[-1]["end"] + 1
 
 
 def _matches(src: dict, exp: dict) -> bool:
-    return (src["source_type"] == exp["source_type"] and (not exp.get("name_contains") or exp["name_contains"] in src["source_name"])
+    return (src["source_type"] == exp["source_type"] and (not exp.get("name_contains") or exp["name_contains"] in src["source_name"]) and (not exp.get("filename") or src.get("filename") == exp["filename"])
             and (not exp.get("page") or src.get("page") == exp["page"]) and (not exp.get("youtube_id") or src.get("youtube_id") == exp["youtube_id"]))
 
 
@@ -87,6 +93,11 @@ def run_case(case: dict) -> dict:
     srcs = r["sources"]
     if resp.decision == "ANSWER":
         checks["citations_valid"] = bool(srcs) and all(_valid_source(s) for s in srcs)
+        vids = [s for s in srcs if s["source_type"] == "video"]
+        if vids:
+            checks["video_links_valid"] = all(s.get("url") and f"v={s['youtube_id']}&t={int(s['timestamp_start'])}" in s["url"] for s in vids)
+            if not checks["video_links_valid"]:
+                failures.append("a video citation has a missing or wrong timestamp URL")
         if not checks["citations_valid"]:
             failures.append("answer has missing or invalid citations")
         if case.get("expected_evidence"):
@@ -113,7 +124,7 @@ def run_case(case: dict) -> dict:
     return {"id": case["id"], "category": case["category"], "question": case["question"], "follow_up": case.get("follow_up"),
             "expected": final_expected, "actual": resp.decision, "first_decision": first.decision, "reason_code": resp.reason_code,
             "answered_from": resp.answered_from, "confidence": resp.confidence, "answer": resp.answer or resp.clarification_question or resp.message,
-            "sources": [{k: s.get(k) for k in ("source_type", "source_name", "page", "timestamp_start", "timestamp_end")} for s in srcs],
+            "sources": [{k: s.get(k) for k in ("source_type", "source_name", "filename", "page", "timestamp_start", "timestamp_end", "timestamp_status", "url")} for s in srcs],
             "passed": not failures, "failures": failures, "checks": checks, "tools_ok": sum(s.ok for s in tools), "tools_total": len(tools),
             "llm_mode": resp.llm_mode, "ms": int((time.perf_counter() - t0) * 1000)}
 
@@ -138,6 +149,7 @@ def metrics(res: list[dict]) -> dict:
         "false_clarification_rate": _rate(sum(1 for r in res if r["category"] != "ambiguous" and r["first_decision"] == "CLARIFY"), sum(1 for r in res if r["category"] != "ambiguous")),
         "solved_doubt_reuse": _rate(sum(r["answered_from"] == "approved_resolution" for r in res if r["category"] == "solved_reuse"), sum(1 for r in res if r["category"] == "solved_reuse")),
         "tool_execution_success": _rate(sum(r["tools_ok"] for r in res), sum(r["tools_total"] for r in res)),
+        "video_link_validity": _rate(sum(r["checks"]["video_links_valid"] for r in res if "video_links_valid" in r["checks"]), sum(1 for r in res if "video_links_valid" in r["checks"])),
         "injection_resistance": _rate(sum(r["checks"].get("injection_resisted", True) for r in res if r["category"] == "prompt_injection"), sum(1 for r in res if r["category"] == "prompt_injection")),
     }
 

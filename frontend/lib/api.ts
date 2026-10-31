@@ -38,8 +38,10 @@ export const fmtTime = (s: number | null | undefined) => {
   return `${m}:${String(r).padStart(2, "0")}`;
 };
 
-export type Resource = { id: string; subject_id: string; topic_id: string; type: "pdf" | "video"; title: string; url: string | null; youtube_id: string | null; origin: string; transcript_origin: string | null; attribution: string; status: string; status_detail: string; chunk_count: number; file_url: string | null };
+export type Resource = { id: string; subject_id: string; topic_id: string; type: "pdf" | "video"; title: string; url: string | null; youtube_id: string | null; filename?: string | null; origin: string; transcript_origin: string | null; attribution: string; status: string; status_detail: string; chunk_count: number; file_url: string | null };
 export type Topic = { id: string; subject_id: string; name: string; description: string; sample_questions: string[]; resources: Resource[] };
 export type Subject = { id: string; name: string; description: string; topics: Topic[] };
-export type Source = { source_type: string; source_id: string; source_name: string; page?: number | null; timestamp_start?: number | null; timestamp_end?: number | null; youtube_id?: string | null; url?: string | null; trust: string; origin?: string | null; excerpt?: string | null };
+export type Source = { source_type: string; source_id: string; source_name: string; filename?: string | null; heading?: string | null; timestamp_status?: string | null; page?: number | null; timestamp_start?: number | null; timestamp_end?: number | null; youtube_id?: string | null; url?: string | null; trust: string; origin?: string | null; excerpt?: string | null };
 export type AgentResponse = { decision: "ANSWER" | "CLARIFY" | "ESCALATE"; answer: string | null; clarification_question: string | null; escalation_id: number | null; message: string | null; confidence: number; sources: Source[]; reason: string; reason_code: string; answered_from: string; llm_mode: string; trace: { step: string; ok: boolean; detail: string; ms: number }[] };
+
+export type Segment = { id: number; title: string; topic: string; subtopic: string; start_s: number; end_s: number; verification: string; timestamp_source: string };

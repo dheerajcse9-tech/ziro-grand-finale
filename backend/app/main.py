@@ -13,7 +13,12 @@ async def lifespan(app: FastAPI):
     db.init_db()
     from .seed_loader import seed_tenant
     from .agent.domain import OS_DOMAIN, save_config
-    if seed_tenant(get_settings().default_tenant_id)["seeded"]:
+    rep = seed_tenant(get_settings().default_tenant_id)
+    if rep["missing_pdfs"] or rep["missing_captions"]:
+        import logging
+        logging.getLogger("doubtloop").warning("seed incomplete: missing PDFs %s, missing captions %s (see backend/seed/)", rep["missing_pdfs"], rep["missing_captions"])
+    from . import db as _db
+    if not _db.row("SELECT 1 FROM agent_configs WHERE tenant_id=?", (get_settings().default_tenant_id,)):
         save_config(get_settings().default_tenant_id, OS_DOMAIN)
     yield
 

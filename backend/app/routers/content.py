@@ -35,7 +35,8 @@ class SegmentIn(BaseModel):
     title: str
     start: float
     end: float
-    explanation: str
+    explanation: str = ""
+    timestamp_source: str = ""
     topic: str = ""
     subtopic: str = ""
     keywords: list[str] = []
@@ -149,4 +150,4 @@ def import_segs(rid: str, body: list[SegmentIn], t: str = Depends(tenant)):
 def list_segs(rid: str, t: str = Depends(tenant)):
     _own(t, rid)
     return [dict(s, keywords=db.loads(s["keywords"], []), questions=db.loads(s["questions"], [])) for s in
-            db.rows("SELECT id,title,topic,subtopic,start_s,end_s,explanation,keywords,questions,verification FROM video_segments WHERE resource_id=? AND tenant_id=? ORDER BY start_s", (rid, t))]
+            db.rows("SELECT id,title,topic,subtopic,start_s,end_s,explanation,keywords,questions,verification,timestamp_source FROM video_segments WHERE resource_id=? AND tenant_id=? ORDER BY start_s", (rid, t))]

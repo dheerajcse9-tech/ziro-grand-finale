@@ -21,7 +21,7 @@ def test_tenant_required():
 def test_catalog_has_four_topics_with_resources():
     with TestClient(app) as c:
         cat = c.get("/api/v1/catalog", headers=H).json()
-        assert [t["name"] for t in cat[0]["topics"]] == ["Process Management", "CPU Scheduling", "Deadlocks", "Memory Management"]
+        assert [t["name"] for t in cat[0]["topics"]] == ["Process Management", "CPU Scheduling", "Process Synchronization", "Deadlocks", "Memory Management"]
         assert all(any(r["type"] == "pdf" for r in t["resources"]) and any(r["type"] == "video" for r in t["resources"]) for t in cat[0]["topics"])
 
 

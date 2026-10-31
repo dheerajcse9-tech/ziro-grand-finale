@@ -1,50 +1,60 @@
-"""Seeds a tenant with the Operating Systems demo dataset (idempotent)."""
+"""Seeds a tenant from backend/seed/os_dataset.json (idempotent, per item). PDFs and caption files are read from git-ignored
+local folders (seed/pdfs, seed/transcripts); anything missing is reported and skipped, never fabricated."""
 import json
-from pathlib import Path
-
-import fitz
+import logging
 
 from . import content, db
 from .config import BACKEND_DIR
 from .ingestion.pipeline import attach_transcript, index_resource
-from .os_notes import CONTRADICTION_NOTES, INJECTION_NOTES, TOPICS
+from .ingestion.segments import import_segments
 
+log = logging.getLogger("doubtloop.seed")
 SEED_DIR = BACKEND_DIR / "seed"
-SUBJECT_ID = "os"
 
 
-def make_pdf(title: str, pages: list[str]) -> bytes:
-    doc = fitz.open()
-    for text in pages:
-        page = doc.new_page()
-        rect = fitz.Rect(54, 54, 541, 790)
-        for size in (10.5, 10, 9.5, 9):
-            if page.insert_textbox(rect, text, fontsize=size, fontname="helv") >= 0:
-                break
-    doc.set_metadata({"title": title, "author": "DoubtLoop demo (original sample notes)"})
-    data = doc.tobytes()
-    doc.close()
-    return data
+def _exists(table: str, tenant_id: str, id_: str) -> bool:
+    return bool(db.row(f"SELECT 1 FROM {table} WHERE id=? AND tenant_id=?", (id_, tenant_id)))
 
 
 def seed_tenant(tenant_id: str, fixtures: bool = False) -> dict:
-    if db.row("SELECT 1 FROM subjects WHERE tenant_id=?", (tenant_id,)):
-        return {"seeded": False}
-    content.create_subject(tenant_id, "Operating Systems", "Core operating systems concepts: processes, scheduling, deadlocks and memory.", id=SUBJECT_ID)
-    for t in TOPICS:
-        content.create_topic(tenant_id, SUBJECT_ID, t["name"], t["description"], t["questions"], id=t["id"])
-        rid = f"{tenant_id}-pdf-{t['id']}"
-        content.create_pdf_resource(tenant_id, SUBJECT_ID, t["id"], t["pdf_title"], make_pdf(t["pdf_title"], t["pages"]), "notes.pdf",
-                                    origin="sample", attribution="Original sample notes written for this demo (not extracted from a published source).", id=rid)
+    ds = json.loads((SEED_DIR / "os_dataset.json").read_text())
+    sid = ds["subject"]["id"]
+    report = {"pdfs": [], "videos": [], "segments": 0, "missing_pdfs": [], "missing_captions": []}
+    if not _exists("subjects", tenant_id, sid):
+        content.create_subject(tenant_id, ds["subject"]["name"], ds["subject"]["description"], id=sid)
+    for t in ds["topics"]:
+        if not _exists("topics", tenant_id, t["id"]):
+            content.create_topic(tenant_id, sid, t["name"], t["description"], t["questions"], id=t["id"])
+        pdf, rid = t["pdf"], f"{tenant_id}-pdf-{t['id']}"
+        path = SEED_DIR / "pdfs" / pdf["filename"]
+        if _exists("resources", tenant_id, rid):
+            continue
+        if not path.exists():
+            report["missing_pdfs"].append(pdf["filename"])
+            log.warning("seed PDF missing: %s", path)
+            continue
+        content.create_pdf_resource(tenant_id, sid, t["id"], pdf["title"], path.read_bytes(), pdf["filename"], origin="course_pdf",
+                                    attribution=f"Course PDF supplied by the course team (file: {pdf['filename']}).", id=rid)
         index_resource(rid)
-    for v in json.loads((SEED_DIR / "videos.json").read_text()):
+        report["pdfs"].append(rid)
+    for v in ds["videos"]:
         rid = f"{tenant_id}-vid-{v['youtube_id']}"
-        content.create_video_resource(tenant_id, SUBJECT_ID, v["topic_id"], f"https://www.youtube.com/watch?v={v['youtube_id']}", v["title"],
-                                      attribution=f"{v['channel']} on YouTube. Embedded via YouTube; captions fetched from YouTube for indexing.", id=rid)
-        attach_transcript(rid, json.loads((SEED_DIR / "transcripts" / f"{v['youtube_id']}.json").read_text()), "extracted")
+        if not _exists("resources", tenant_id, rid):
+            content.create_video_resource(tenant_id, sid, v["topic_id"], f"https://www.youtube.com/watch?v={v['youtube_id']}", v["title"],
+                                          attribution=f"{v['channel']} on YouTube (embedded via YouTube).", id=rid, duration_s=v.get("duration_s"))
+            cap = SEED_DIR / "transcripts" / f"{v['youtube_id']}.json"
+            if cap.exists():
+                attach_transcript(rid, json.loads(cap.read_text()), "extracted")
+            else:
+                report["missing_captions"].append(v["youtube_id"])
+            report["videos"].append(rid)
+        r = import_segments(tenant_id, rid, v["segments"])
+        report["segments"] += r["segments_total"]
     if fixtures:
-        for key, f in (("injection", INJECTION_NOTES), ("conflict", CONTRADICTION_NOTES)):
+        from .evaluation.fixtures import CONFLICT, INJECTION, make_pdf
+        for key, f in (("injection", INJECTION), ("conflict", CONFLICT)):
             rid = f"{tenant_id}-pdf-{key}"
-            content.create_pdf_resource(tenant_id, SUBJECT_ID, f["topic_id"], f["title"], make_pdf(f["title"], f["pages"]), "f.pdf", origin="sample", id=rid)
-            index_resource(rid)
-    return {"seeded": True}
+            if not _exists("resources", tenant_id, rid):
+                content.create_pdf_resource(tenant_id, sid, f["topic_id"], f["title"], make_pdf(f["title"], f["pages"]), f"{key}.pdf", origin="fixture", id=rid)
+                index_resource(rid)
+    return report
