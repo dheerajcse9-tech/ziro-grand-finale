@@ -5,11 +5,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from . import db
 from .config import get_settings
+from .routers import content
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init_db()
+    from .seed_loader import seed_tenant
+    seed_tenant(get_settings().default_tenant_id)
     yield
 
 
@@ -30,3 +33,6 @@ app.add_middleware(
 @app.get("/health", tags=["system"])
 def health():
     return {"status": "ok", "service": "doubtloop-api"}
+
+
+app.include_router(content.router)
