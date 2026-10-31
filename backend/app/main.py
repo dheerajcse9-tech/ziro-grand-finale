@@ -5,14 +5,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from . import db
 from .config import get_settings
-from .routers import content
+from .routers import agent, content
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init_db()
     from .seed_loader import seed_tenant
-    seed_tenant(get_settings().default_tenant_id)
+    from .agent.domain import OS_DOMAIN, save_config
+    if seed_tenant(get_settings().default_tenant_id)["seeded"]:
+        save_config(get_settings().default_tenant_id, OS_DOMAIN)
     yield
 
 
@@ -36,3 +38,4 @@ def health():
 
 
 app.include_router(content.router)
+app.include_router(agent.router)

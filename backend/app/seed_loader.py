@@ -15,14 +15,13 @@ SUBJECT_ID = "os"
 
 def make_pdf(title: str, pages: list[str]) -> bytes:
     doc = fitz.open()
-    for i, text in enumerate(pages, 1):
+    for text in pages:
         page = doc.new_page()
-        page.insert_text((54, 54), title, fontsize=13, fontname="hebo")
-        rect = fitz.Rect(54, 78, 541, 790)
+        rect = fitz.Rect(54, 54, 541, 790)
         for size in (10.5, 10, 9.5, 9):
             if page.insert_textbox(rect, text, fontsize=size, fontname="helv") >= 0:
                 break
-        page.insert_text((54, 820), f"Page {i} - sample notes authored for the DoubtLoop demo", fontsize=8, fontname="helv")
+    doc.set_metadata({"title": title, "author": "DoubtLoop demo (original sample notes)"})
     data = doc.tobytes()
     doc.close()
     return data
