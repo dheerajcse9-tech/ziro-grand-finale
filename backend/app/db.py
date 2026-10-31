@@ -37,6 +37,9 @@ CREATE TABLE IF NOT EXISTS video_segments(
 CREATE TABLE IF NOT EXISTS agent_events(
   id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, run_id TEXT NOT NULL, session_id TEXT, seq INTEGER NOT NULL, ts REAL, t_ms INTEGER,
   type TEXT NOT NULL, agent TEXT NOT NULL, status TEXT NOT NULL, title TEXT DEFAULT '', escalation_id INTEGER, data TEXT DEFAULT '{}');
+CREATE TABLE IF NOT EXISTS demo_state(tenant_id TEXT NOT NULL, key TEXT NOT NULL, value TEXT, updated_at REAL, PRIMARY KEY(tenant_id, key));
+CREATE TABLE IF NOT EXISTS demo_users(tenant_id TEXT NOT NULL, role TEXT NOT NULL, user_id TEXT NOT NULL, label TEXT NOT NULL, PRIMARY KEY(tenant_id, role));
+CREATE TABLE IF NOT EXISTS audit_log(id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT, action TEXT NOT NULL, actor TEXT, ok INTEGER, detail TEXT, ts REAL);
 CREATE INDEX IF NOT EXISTS ix_ev_run ON agent_events(tenant_id, run_id, seq);
 CREATE INDEX IF NOT EXISTS ix_res_tenant ON resources(tenant_id, topic_id);
 CREATE INDEX IF NOT EXISTS ix_esc_tenant ON escalations(tenant_id, status);

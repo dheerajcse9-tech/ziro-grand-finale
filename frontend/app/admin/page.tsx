@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 import Link from "next/link";
 import AgentTimeline from "@/components/AgentTimeline";
+import DemoReset from "@/components/DemoReset";
 import { api, type Resource, type Subject } from "@/lib/api";
 import { INGEST_AGENTS, type AgentEvent } from "@/lib/events";
 
@@ -41,6 +42,7 @@ export default function Admin() {
       </div>
       <RunMonitor />
       <PolicyEditor />
+      <DemoReset />
     </Shell>
   );
 }

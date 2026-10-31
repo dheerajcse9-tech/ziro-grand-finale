@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     default_tenant_id: str = "demo-university"
     max_upload_mb: int = 25
+    admin_token: str = ""  # if set, demo reset/test endpoints require X-Admin-Token; if empty they accept loopback clients only
 
     def _abs(self, p: str) -> Path:
         path = Path(p)

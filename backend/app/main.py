@@ -11,7 +11,7 @@ from .config import get_settings
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 for _n in ("httpx", "httpcore", "google_genai", "chromadb"):
     logging.getLogger(_n).setLevel(logging.WARNING)
-from .routers import agent, content, evaluation, monitor
+from .routers import agent, content, evaluation, monitor, demo as demo_router
 
 
 @asynccontextmanager
@@ -58,3 +58,4 @@ app.include_router(content.router)
 app.include_router(agent.router)
 app.include_router(evaluation.router)
 app.include_router(monitor.router)
+app.include_router(demo_router.router)

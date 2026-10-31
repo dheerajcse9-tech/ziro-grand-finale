@@ -98,3 +98,26 @@ def query(tenant_id: str, text: str, k: int = 6, **filters: Any) -> list[dict]:
 
 def count(tenant_id: str) -> int:
     return len(_collection().get(where=_where(tenant_id, {}), include=[])["ids"])
+
+
+def count_where(tenant_id: str, **filters: Any) -> int:
+    return len(_collection().get(where=_where(tenant_id, filters), include=[])["ids"])
+
+
+def delete_where(tenant_id: str, **filters: Any) -> int:
+    """Delete vectors matching tenant + at least one explicit filter. Refuses an unfiltered call so a whole tenant/collection can never be cleared by accident."""
+    if not any(v is not None for v in filters.values()):
+        raise VectorStoreError("delete_where requires at least one filter.")
+    w = _where(tenant_id, filters)
+    n = len(_collection().get(where=w, include=[])["ids"])
+    if n:
+        _collection().delete(where=w)
+    return n
+
+
+def get_texts(ids: list[str]) -> dict[str, str]:
+    ids = list(dict.fromkeys(ids))
+    if not ids:
+        return {}
+    r = _collection().get(ids=ids, include=["documents"])
+    return dict(zip(r["ids"], r["documents"]))
