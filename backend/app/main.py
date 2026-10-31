@@ -4,7 +4,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import db
+import logging
+
 from .config import get_settings
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+for _n in ("httpx", "httpcore", "google_genai", "chromadb"):
+    logging.getLogger(_n).setLevel(logging.WARNING)
 from .routers import agent, content, evaluation
 
 

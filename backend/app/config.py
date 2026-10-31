@@ -10,6 +10,9 @@ class Settings(BaseSettings):
 
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
+    gemini_timeout_s: float = 20.0
+    gemini_max_retries: int = 1
+    gemini_cooldown_s: float = 60.0
     database_url: str = "sqlite:///./data/doubtloop.db"
     chroma_persist_directory: str = "./data/chroma"
     upload_directory: str = "./data/uploads"

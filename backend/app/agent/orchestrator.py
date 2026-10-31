@@ -83,13 +83,20 @@ class Orchestrator:
 
         def llm(task: str, *args):
             t = time.perf_counter()
+            if flags["degraded"] and self.provider is not self.local:  # Gemini already failed in this request: don't wait on it again
+                step(f"llm.{task}", "skipped Gemini after earlier failure in this request; local deterministic logic", ok=False, since=t)
+                return getattr(self.local, task)(*args)
             try:
                 out = getattr(self.provider, task)(*args)
-                step(f"llm.{task}", f"{self.provider.name}", since=t)
+                lc = getattr(self.provider, "last_call", None) or {}
+                usage = (" (cached)" if lc.get("cached") else f" model={getattr(self.provider, 'model', '')} tokens in/out={lc.get('in')}/{lc.get('out')}") if lc else ""
+                step(f"llm.{task}", f"{self.provider.name}{usage}", since=t)
                 return out
-            except LLMError as e:
+            except Exception as e:  # LLMError or any malformed-provider failure: never crash the request, fall back to deterministic local logic
                 flags["degraded"] = True
-                step(f"llm.{task}", f"{e}; using local deterministic fallback", ok=False, since=t)
+                msg = str(e) if isinstance(e, LLMError) else f"unexpected {type(e).__name__}"
+                log.warning("llm.%s failed: %s", task, msg)
+                step(f"llm.{task}", f"{msg}; using local deterministic fallback", ok=False, since=t)
                 return getattr(self.local, task)(*args)
 
         step("receive", f"question received ({len(req.question)} chars)" + (f"; continuing pending clarification (round {pending['rounds']})" if pending else ""))
