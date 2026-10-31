@@ -34,6 +34,10 @@ CREATE TABLE IF NOT EXISTS video_segments(
   id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, resource_id TEXT NOT NULL, title TEXT NOT NULL, topic TEXT DEFAULT '', subtopic TEXT DEFAULT '',
   start_s REAL NOT NULL, end_s REAL NOT NULL, explanation TEXT NOT NULL, keywords TEXT DEFAULT '[]', questions TEXT DEFAULT '[]', transcript_text TEXT DEFAULT '',
   verification TEXT DEFAULT 'unverified', content_hash TEXT, indexed_hash TEXT, UNIQUE(resource_id, start_s, end_s));
+CREATE TABLE IF NOT EXISTS agent_events(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, run_id TEXT NOT NULL, session_id TEXT, seq INTEGER NOT NULL, ts REAL, t_ms INTEGER,
+  type TEXT NOT NULL, agent TEXT NOT NULL, status TEXT NOT NULL, title TEXT DEFAULT '', escalation_id INTEGER, data TEXT DEFAULT '{}');
+CREATE INDEX IF NOT EXISTS ix_ev_run ON agent_events(tenant_id, run_id, seq);
 CREATE INDEX IF NOT EXISTS ix_res_tenant ON resources(tenant_id, topic_id);
 CREATE INDEX IF NOT EXISTS ix_esc_tenant ON escalations(tenant_id, status);
 CREATE INDEX IF NOT EXISTS ix_msg_sess ON messages(tenant_id, session_id);

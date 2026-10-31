@@ -1,7 +1,10 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Shell from "@/components/Shell";
+import Link from "next/link";
+import AgentTimeline from "@/components/AgentTimeline";
 import { api, type Resource, type Subject } from "@/lib/api";
+import { INGEST_AGENTS, type AgentEvent } from "@/lib/events";
 
 const badge = (s: string) => s === "indexed" ? "bg-accent-soft text-accent" : s === "failed" ? "bg-red-100 text-red-800" : s === "no_transcript" ? "bg-slate-200 text-slate-700" : "bg-amber-100 text-amber-800";
 
@@ -20,6 +23,7 @@ export default function Admin() {
       <p className="label">Admin · content management</p>
       <h1 className="mt-1 text-3xl font-semibold tracking-tight">Course content</h1>
       {msg && <p className={`mt-4 rounded-lg p-3 text-sm ${msg.ok ? "bg-accent-soft text-accent" : "bg-red-50 text-red-800"}`}>{msg.text}</p>}
+      <Stats />
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <SubjectForm run={run} />
         <TopicForm cat={cat} run={run} />
@@ -35,6 +39,7 @@ export default function Admin() {
           </tbody>
         </table>
       </div>
+      <RunMonitor />
       <PolicyEditor />
     </Shell>
   );
@@ -46,6 +51,8 @@ function Row({ r, run }: { r: Resource & { topic: string }; run: Run }) {
   const [text, setText] = useState("");
   const [segOpen, setSegOpen] = useState(false);
   const [segs, setSegs] = useState("");
+  const [pipe, setPipe] = useState(false);
+  const live = r.status === "pending" || r.status === "processing";
   const upload = (f: File | undefined) => { if (!f) return; const fd = new FormData(); fd.append("file", f); run(() => api(`/api/v1/resources/${r.id}/transcript/file`, { method: "POST", body: fd }), "Transcript uploaded and processed."); };
   return (
     <>
@@ -58,9 +65,11 @@ function Row({ r, run }: { r: Resource & { topic: string }; run: Run }) {
           {r.type === "video" && <><button className="btn text-xs" onClick={() => run(() => api(`/api/v1/resources/${r.id}/transcript/fetch`, { method: "POST" }), "Transcript fetch attempted — check status.")}>Fetch captions</button>
             <button className="btn text-xs" onClick={() => setOpen(!open)}>Add transcript</button>
             <button className="btn text-xs" onClick={() => setSegOpen(!segOpen)}>Import segments</button></>}
+          <button className="btn text-xs" onClick={() => setPipe(!pipe)}>Pipeline</button>
           <button className="btn text-xs" onClick={() => run(() => api(`/api/v1/resources/${r.id}/reindex`, { method: "POST" }), "Reindex finished — check status.")}>Reindex</button>
         </td>
       </tr>
+      {(pipe || live) && <tr><td colSpan={5} className="bg-bg p-3"><Pipeline rid={r.id} status={r.status} /></td></tr>}
       {segOpen && <tr><td colSpan={5} className="bg-bg p-3">
         <p className="mb-1 text-xs text-muted">JSON array of segments: <code>{`{title, start, end, explanation, topic?, subtopic?, keywords?, questions?, transcript_text?, verification_status: "verified"|"unverified"}`}</code>. Unverified timestamps are never shown to students as exact citations. Re-importing updates in place.</p>
         <textarea className="input min-h-28 font-mono text-xs" value={segs} onChange={(e) => setSegs(e.target.value)} />
@@ -127,6 +136,81 @@ function PolicyEditor() {
           <label className="block text-sm"><input type="checkbox" checked={cfg.clarification_enabled} onChange={() => setCfg({ ...cfg, clarification_enabled: !cfg.clarification_enabled })} /> Allow clarifying questions</label>
         </div>
         <div className="flex items-center gap-3 lg:col-span-2"><button className="btn btn-primary" onClick={async () => { try { setCfg(await api("/api/v1/config", { method: "PUT", json: cfg })); setMsg("Saved."); } catch (e: any) { setMsg(e.message); } }}>Save policy</button><span className="text-sm text-muted">{msg}</span></div>
+      </div>
+    </section>
+  );
+}
+
+function Stats() {
+  const [s, setS] = useState<any>(null);
+  const [err, setErr] = useState("");
+  useEffect(() => { const l = () => api("/api/v1/admin/stats").then((x) => { setS(x); setErr(""); }).catch((e) => setErr(e.message)); l(); const t = setInterval(l, 5000); return () => clearInterval(t); }, []);
+  if (err) return <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">Statistics unavailable: {err}</p>;
+  if (!s) return null;
+  const esc = s.escalations ?? {};
+  const cards: [string, string | number, string?][] = [
+    ["Documents", `${s.pdfs} PDF · ${s.videos} video`, `${Object.entries(s.resources).map(([k, v]) => `${v} ${k.replace("_", " ")}`).join(", ")}`],
+    ["Chunks / vectors", `${s.chunks} / ${s.vectors ?? "n/a"}`, `${s.segments} lecture segments`],
+    ["Trusted memory", s.trusted_resolutions, `${esc.pending ?? 0} pending · ${esc.rejected ?? 0} rejected`],
+    ["Agent runs", s.runs.completed, `${s.runs.by_decision.ANSWER} answer · ${s.runs.by_decision.CLARIFY} clarify · ${s.runs.by_decision.ESCALATE} escalate`],
+    ["Failures", s.runs.failed, `${s.runs.llm_fallbacks} run(s) used local fallback${s.runs.avg_ms ? ` · avg ${s.runs.avg_ms} ms` : ""}`],
+    ["Students", s.active_students, "distinct askers (no accounts in this build)"],
+  ];
+  return (
+    <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+      {cards.map(([l, v, sub]) => <div key={l} className="card p-3"><p className="label">{l}</p><p className="mt-1 text-xl font-semibold">{v}</p>{sub && <p className="mt-0.5 text-[11px] text-muted">{sub}</p>}</div>)}
+      <p className="text-xs text-muted sm:col-span-2 lg:col-span-6">Computed live from the database and vector store (recent-run window: last {s.runs.recent_window}). Evaluation results: <Link href="/evaluation" className="text-accent hover:underline">Evaluation page</Link>.</p>
+    </div>
+  );
+}
+
+function Pipeline({ rid, status }: { rid: string; status: string }) {
+  const [ev, setEv] = useState<AgentEvent[] | null>(null);
+  const [q, setQ] = useState("");
+  const [hits, setHits] = useState<any[] | null>(null);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    const l = () => api<{ events: AgentEvent[] }>(`/api/v1/ingestion/${rid}/events`).then((x) => setEv(x.events)).catch(() => setEv([]));
+    l();
+    if (status !== "pending" && status !== "processing") return;
+    const t = setInterval(l, 1500);
+    return () => clearInterval(t);
+  }, [rid, status]);
+  const search = () => api<any[]>(`/api/v1/resources/${rid}/search?q=${encodeURIComponent(q)}`).then((h) => { setHits(h); setErr(""); }).catch((e) => setErr(e.message));
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <div>
+        <p className="label mb-1.5">Processing stages (recorded events)</p>
+        {ev === null ? <p className="text-sm text-muted">Loading…</p> : ev.length ? <AgentTimeline events={ev} agents={INGEST_AGENTS} live={status === "pending" || status === "processing"} />
+          : <p className="text-sm text-muted">{status === "pending" || status === "processing" ? "Waiting for the processing worker to start…" : "No ingestion run recorded for this resource yet (it predates event recording). Use Reindex to record one."}</p>}
+      </div>
+      <div>
+        <p className="label mb-1.5">Is it searchable? (vector search on this resource only)</p>
+        <div className="flex gap-2"><input className="input" placeholder="Type a question this material should answer…" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && q.trim() && search()} /><button className="btn" disabled={!q.trim()} onClick={search}>Search</button></div>
+        {err && <p className="mt-2 text-sm text-red-700">{err}</p>}
+        {hits && (hits.length ? <ul className="mt-2 space-y-1.5">{hits.map((h, i) => <li key={i} className="rounded-md border border-line bg-white p-2 text-xs"><b>{h.page ? `p.${h.page}` : h.ts_start != null ? `${Math.floor(h.ts_start / 60)}:${String(Math.floor(h.ts_start % 60)).padStart(2, "0")}` : ""}</b> · similarity {h.similarity.toFixed(2)}{h.heading ? ` · ${h.heading}` : ""}<p className="mt-1 text-muted">{h.excerpt}…</p></li>)}</ul> : <p className="mt-2 text-sm text-muted">No passages found — the resource has no indexed vectors.</p>)}
+      </div>
+    </div>
+  );
+}
+
+function RunMonitor() {
+  const [runs, setRuns] = useState<any[]>([]);
+  const [err, setErr] = useState("");
+  useEffect(() => { const l = () => api<any[]>("/api/v1/events/runs?limit=12").then((r) => { setRuns(r); setErr(""); }).catch((e) => setErr(e.message)); l(); const t = setInterval(l, 5000); return () => clearInterval(t); }, []);
+  return (
+    <section className="mt-10">
+      <div className="flex items-end justify-between"><h2 className="text-lg font-semibold tracking-tight">Agent execution monitor</h2><Link href="/agents" className="text-sm text-accent hover:underline">Open orchestration view ↗</Link></div>
+      {err && <p className="mt-2 rounded-lg bg-red-50 p-3 text-sm text-red-800">{err}</p>}
+      <div className="card mt-3 overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead className="border-b border-line text-xs text-muted"><tr><th className="p-3">Question</th><th>Decision</th><th>Mode</th><th>Time</th><th>Errors</th><th className="pr-3"></th></tr></thead>
+          <tbody className="divide-y divide-line">
+            {runs.map((r) => <tr key={r.run_id}><td className="max-w-xs truncate p-3">{r.question ?? "(continued)"}</td><td>{r.decision ?? "—"}</td><td className="text-xs text-muted">{r.llm_mode ?? ""}{r.fallback ? " · fallback" : ""}</td><td className="text-xs">{r.total_ms != null ? `${r.total_ms} ms` : ""}</td>
+              <td>{r.failed ? <span className="pill bg-red-100 text-red-800">failed step</span> : <span className="text-xs text-muted">none</span>}</td><td className="pr-3 text-right"><Link className="text-accent hover:underline" href={`/agents?run=${r.run_id}`}>Inspect</Link></td></tr>)}
+            {!runs.length && <tr><td colSpan={6} className="p-4 text-center text-sm text-muted">No agent runs recorded yet.</td></tr>}
+          </tbody>
+        </table>
       </div>
     </section>
   );

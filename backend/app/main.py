@@ -11,7 +11,7 @@ from .config import get_settings
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 for _n in ("httpx", "httpcore", "google_genai", "chromadb"):
     logging.getLogger(_n).setLevel(logging.WARNING)
-from .routers import agent, content, evaluation
+from .routers import agent, content, evaluation, monitor
 
 
 @asynccontextmanager
@@ -37,7 +37,13 @@ app = FastAPI(
 )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=list({get_settings().frontend_origin, "http://localhost:3000", "http://127.0.0.1:3000"}),
+    allow_origins=list({
+        get_settings().frontend_origin,
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+    }),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -51,3 +57,4 @@ def health():
 app.include_router(content.router)
 app.include_router(agent.router)
 app.include_router(evaluation.router)
+app.include_router(monitor.router)

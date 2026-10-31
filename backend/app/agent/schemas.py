@@ -51,4 +51,5 @@ class AgentResponse(BaseModel):
     answered_from: Literal["evidence", "approved_resolution", "none"] = "none"
     session_id: str
     llm_mode: str
+    run_id: str | None = Field(default=None, description="Execution-event run id; GET /api/v1/events/runs/{run_id}")
     trace: list[TraceStep] = []

@@ -3,6 +3,7 @@ import json
 import logging
 
 from .. import db, vectorstore
+from ..agent.events import Recorder, new_run_id
 from ..embeddings import text_hash
 from .base import IngestError
 from .chunking import chunk_pdf, chunk_transcript
@@ -24,14 +25,29 @@ def index_resource(resource_id: str, force: bool = False) -> dict:
         raise IngestError("Resource not found.")
     connector, chunker = CONNECTORS[r["type"]]
     set_status(resource_id, "processing")
+    rec = Recorder(r["tenant_id"], new_run_id("ingest"), session_id=resource_id)  # session_id column holds the resource id for ingestion runs
+    stage = ["ingestion"]
+
+    def mark(agent: str, title: str, status: str = "completed", **d):
+        stage[0] = agent
+        rec.emit("stage_started" if status == "running" else "stage_completed", agent, status, title, **d)
+    mark("ingestion", "Document Ingestion Agent", resource=r["title"], resource_type=r["type"], filename=r.get("filename"), force=force)
     try:
-        chunks = chunker(connector.extract(r))
+        mark("extraction", "Text Extraction Agent", "running")
+        segs = connector.extract(r)
+        mark("extraction", "Text Extraction Agent", segments=len(segs), characters=sum(len(x.text) for x in segs))
+        mark("chunking", "Chunking Agent", "running")
+        chunks = chunker(segs)
         if not chunks:
             raise IngestError("No text chunks were produced.")
+        mark("chunking", "Chunking Agent", chunks=len(chunks))
         h = text_hash(*[c.text for c in chunks])
         if not force and r["content_hash"] == h and r["chunk_count"] == len(chunks):
             # unchanged content: do not re-embed. Verify vectors still exist.
             set_status(resource_id, "indexed", "Unchanged; embeddings reused.", chunk_count=len(chunks), content_hash=h)
+            rec.emit("stage_skipped", "embedding", "skipped", "Embedding Agent", reason="Content unchanged; existing embeddings reused")
+            rec.emit("stage_skipped", "indexing", "skipped", "Knowledge Indexing Agent", reason="Content unchanged")
+            mark("validation", "Validation and completion", outcome="indexed", chunks=len(chunks), reused=True)
             return db.row("SELECT * FROM resources WHERE id=?", (resource_id,))
         vectorstore.delete_source(r["tenant_id"], resource_id, keep_kind="segment")
         items = []
@@ -46,16 +62,26 @@ def index_resource(resource_id: str, force: bool = False) -> dict:
                     "kind": "chunk", "page": c.page, "heading": c.heading, "filename": r.get("filename"), "ts_start": c.start, "ts_end": c.end, "youtube_id": r["youtube_id"], "ts_status": "caption" if r["type"] == "video" else None,
                 },
             })
-        vectorstore.upsert(r["tenant_id"], items)
+        mark("embedding", "Embedding Agent", "running")
+
+        def on_stage(name: str, **d):
+            if name == "embedded":
+                mark("embedding", "Embedding Agent", **d)
+                mark("indexing", "Knowledge Indexing Agent", "running")
+            else:
+                mark("indexing", "Knowledge Indexing Agent", store="ChromaDB", **d)
+        vectorstore.upsert(r["tenant_id"], items, on_stage=on_stage)
         detail = f"{len(chunks)} chunks indexed."
         if r["type"] == "pdf":
             st = pdf_stats(r["file_path"])
             detail = (f"{len(chunks)} chunks indexed from {st['pages']} pages. {st['images']} embedded images (diagrams, charts, worked-example figures) "
                       "are not text-searchable and were not OCR'd.")
         set_status(resource_id, "indexed", detail, chunk_count=len(chunks), content_hash=h)
+        mark("validation", "Validation and completion", outcome="indexed", chunks=len(chunks), vectors_in_store=vectorstore.count(r["tenant_id"]), detail=detail)
     except Exception as e:  # never claim indexed on failure
         msg = str(e) if isinstance(e, (IngestError, vectorstore.VectorStoreError)) else f"Unexpected error: {e}"
         log.warning("indexing %s failed: %s", resource_id, msg)
+        rec.emit("stage_failed", stage[0], "failed", "Ingestion failed", error=msg)
         set_status(resource_id, "failed" if r["type"] == "pdf" or r["transcript_origin"] else "no_transcript", msg)
     return db.row("SELECT * FROM resources WHERE id=?", (resource_id,))
 

@@ -1,5 +1,6 @@
 """ChromaDB wrapper. Every read/write is tenant-scoped: tenant_id is a required argument and always in the filter."""
 import threading
+import time
 from typing import Any
 
 import chromadb
@@ -39,18 +40,24 @@ def _where(tenant_id: str, filters: dict[str, Any]) -> dict:
     return conds[0] if len(conds) == 1 else {"$and": conds}
 
 
-def upsert(tenant_id: str, items: list[dict]) -> None:
+def upsert(tenant_id: str, items: list[dict], on_stage=None) -> None:
     """items: {id, text, embed_text?, metadata}. tenant_id is stamped into metadata here."""
     if not items:
         return
     try:
+        t0 = time.perf_counter()
         vecs = embed([i.get("embed_text", i["text"]) for i in items])
+        if on_stage:
+            on_stage("embedded", vectors=len(vecs), dims=len(vecs[0]) if vecs else 0, ms=int((time.perf_counter() - t0) * 1000))
+        t1 = time.perf_counter()
         _collection().upsert(
             ids=[i["id"] for i in items],
             documents=[i["text"] for i in items],
             embeddings=vecs,
             metadatas=[{**{k: v for k, v in i["metadata"].items() if v is not None}, "tenant_id": tenant_id} for i in items],
         )
+        if on_stage:
+            on_stage("stored", ms=int((time.perf_counter() - t1) * 1000))
     except VectorStoreError:
         raise
     except Exception as e:
