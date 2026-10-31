@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic-settings
+pymupdf
+chromadb
+sentence-transformers
+google-genai
+youtube-transcript-api
+httpx
+pytest
