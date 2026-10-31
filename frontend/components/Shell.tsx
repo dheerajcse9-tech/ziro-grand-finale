@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { API } from "@/lib/api";
 
 const NAV = [
   { href: "/", label: "Student" },
@@ -27,7 +26,6 @@ export default function Shell({ children, wide = false }: { children: React.Reac
                 {n.label}
               </Link>
             ))}
-            <a href={`${API}/docs`} target="_blank" rel="noreferrer" className="rounded-md px-3 py-1.5 text-muted hover:text-ink">API docs ↗</a>
           </nav>
         </div>
       </header>
