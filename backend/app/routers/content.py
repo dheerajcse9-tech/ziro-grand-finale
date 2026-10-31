@@ -28,6 +28,20 @@ class VideoIn(BaseModel):
     topic_id: str
     url: str
     title: str | None = Field(default=None, max_length=200)
+    duration_s: float | None = Field(default=None, gt=0)
+
+
+class SegmentIn(BaseModel):
+    title: str
+    start: float
+    end: float
+    explanation: str
+    topic: str = ""
+    subtopic: str = ""
+    keywords: list[str] = []
+    questions: list[str] = []
+    transcript_text: str = ""
+    verification_status: str = "unverified"
 
 
 class TranscriptIn(BaseModel):
@@ -80,7 +94,7 @@ async def upload_pdf(bg: BackgroundTasks, file: UploadFile = File(...), subject_
 
 @router.post("/resources/video")
 def add_video(body: VideoIn, t: str = Depends(tenant)):
-    return content.public_resource(_wrap(content.create_video_resource, t, body.subject_id, body.topic_id, body.url, body.title))
+    return content.public_resource(_wrap(content.create_video_resource, t, body.subject_id, body.topic_id, body.url, body.title, duration_s=body.duration_s))
 
 
 @router.post("/resources/{rid}/transcript")
@@ -122,3 +136,17 @@ def pdf_file(rid: str, t: str = Depends(tenant)):
     if r["type"] != "pdf":
         raise HTTPException(404, "No file for this resource.")
     return FileResponse(r["file_path"], media_type="application/pdf", filename=None, headers={"Content-Disposition": "inline"})
+
+
+@router.post("/resources/{rid}/segments", summary="Import timestamped segment metadata (idempotent upsert; re-import never duplicates)")
+def import_segs(rid: str, body: list[SegmentIn], t: str = Depends(tenant)):
+    from ..ingestion.segments import import_segments
+    _own(t, rid)
+    return _wrap(import_segments, t, rid, [s.model_dump() for s in body])
+
+
+@router.get("/resources/{rid}/segments")
+def list_segs(rid: str, t: str = Depends(tenant)):
+    _own(t, rid)
+    return [dict(s, keywords=db.loads(s["keywords"], []), questions=db.loads(s["questions"], [])) for s in
+            db.rows("SELECT id,title,topic,subtopic,start_s,end_s,explanation,keywords,questions,verification FROM video_segments WHERE resource_id=? AND tenant_id=? ORDER BY start_s", (rid, t))]

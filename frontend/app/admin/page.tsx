@@ -44,6 +44,8 @@ type Run = (fn: () => Promise<unknown>, ok: string) => Promise<void>;
 function Row({ r, run }: { r: Resource & { topic: string }; run: Run }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
+  const [segOpen, setSegOpen] = useState(false);
+  const [segs, setSegs] = useState("");
   const upload = (f: File | undefined) => { if (!f) return; const fd = new FormData(); fd.append("file", f); run(() => api(`/api/v1/resources/${r.id}/transcript/file`, { method: "POST", body: fd }), "Transcript uploaded and processed."); };
   return (
     <>
@@ -54,10 +56,16 @@ function Row({ r, run }: { r: Resource & { topic: string }; run: Run }) {
         <td><span className={`pill ${badge(r.status)}`}>{r.status.replace("_", " ")}{r.status === "indexed" ? ` · ${r.chunk_count}` : ""}</span></td>
         <td className="space-x-1 whitespace-nowrap pr-3 text-right">
           {r.type === "video" && <><button className="btn text-xs" onClick={() => run(() => api(`/api/v1/resources/${r.id}/transcript/fetch`, { method: "POST" }), "Transcript fetch attempted — check status.")}>Fetch captions</button>
-            <button className="btn text-xs" onClick={() => setOpen(!open)}>Add transcript</button></>}
+            <button className="btn text-xs" onClick={() => setOpen(!open)}>Add transcript</button>
+            <button className="btn text-xs" onClick={() => setSegOpen(!segOpen)}>Import segments</button></>}
           <button className="btn text-xs" onClick={() => run(() => api(`/api/v1/resources/${r.id}/reindex`, { method: "POST" }), "Reindex finished — check status.")}>Reindex</button>
         </td>
       </tr>
+      {segOpen && <tr><td colSpan={5} className="bg-bg p-3">
+        <p className="mb-1 text-xs text-muted">JSON array of segments: <code>{`{title, start, end, explanation, topic?, subtopic?, keywords?, questions?, transcript_text?, verification_status: "verified"|"unverified"}`}</code>. Unverified timestamps are never shown to students as exact citations. Re-importing updates in place.</p>
+        <textarea className="input min-h-28 font-mono text-xs" value={segs} onChange={(e) => setSegs(e.target.value)} />
+        <button className="btn btn-primary mt-2 text-xs" disabled={!segs.trim()} onClick={() => run(async () => { const res: any = await api(`/api/v1/resources/${r.id}/segments`, { method: "POST", json: JSON.parse(segs) }); setSegs(""); setSegOpen(false); alert(`Segments: ${res.segments_total} total, ${res.segments_embedded} newly embedded, ${res.segments_reused} reused`); }, "Segments imported and indexed.")}>Validate & index</button>
+      </td></tr>}
       {open && <tr><td colSpan={5} className="bg-bg p-3">
         <p className="mb-1 text-xs text-muted">Paste timestamped lines (<code>[01:25] text</code>), SRT/VTT, or JSON <code>[{`{start,end,text}`}]</code> — or upload a file.</p>
         <textarea className="input min-h-24 font-mono text-xs" value={text} onChange={(e) => setText(e.target.value)} />

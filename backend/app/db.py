@@ -30,6 +30,10 @@ CREATE TABLE IF NOT EXISTS messages(
 CREATE TABLE IF NOT EXISTS sessions(session_id TEXT NOT NULL, tenant_id TEXT NOT NULL, state TEXT DEFAULT '{}', updated_at REAL, PRIMARY KEY(session_id, tenant_id));
 CREATE TABLE IF NOT EXISTS agent_configs(tenant_id TEXT PRIMARY KEY, config TEXT NOT NULL, updated_at REAL);
 CREATE TABLE IF NOT EXISTS eval_runs(id INTEGER PRIMARY KEY AUTOINCREMENT, created_at REAL, llm_mode TEXT, metrics TEXT, results TEXT);
+CREATE TABLE IF NOT EXISTS video_segments(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, resource_id TEXT NOT NULL, title TEXT NOT NULL, topic TEXT DEFAULT '', subtopic TEXT DEFAULT '',
+  start_s REAL NOT NULL, end_s REAL NOT NULL, explanation TEXT NOT NULL, keywords TEXT DEFAULT '[]', questions TEXT DEFAULT '[]', transcript_text TEXT DEFAULT '',
+  verification TEXT DEFAULT 'unverified', content_hash TEXT, indexed_hash TEXT, UNIQUE(resource_id, start_s, end_s));
 CREATE INDEX IF NOT EXISTS ix_res_tenant ON resources(tenant_id, topic_id);
 CREATE INDEX IF NOT EXISTS ix_esc_tenant ON escalations(tenant_id, status);
 CREATE INDEX IF NOT EXISTS ix_msg_sess ON messages(tenant_id, session_id);
@@ -52,6 +56,8 @@ def init_db() -> None:
     get_settings().db_path.parent.mkdir(parents=True, exist_ok=True)
     with conn() as c:
         c.executescript(SCHEMA)
+        if "duration_s" not in [r[1] for r in c.execute("PRAGMA table_info(resources)")]:
+            c.execute("ALTER TABLE resources ADD COLUMN duration_s REAL")
 
 
 def rows(sql: str, params: Iterable[Any] = ()) -> list[dict]:

@@ -75,20 +75,20 @@ def create_pdf_resource(tenant_id: str, subject_id: str, topic_id: str, title: s
 
 
 def create_video_resource(tenant_id: str, subject_id: str, topic_id: str, url: str, title: str | None = None,
-                          attribution: str = "", id: str | None = None) -> dict:
+                          attribution: str = "", id: str | None = None, duration_s: float | None = None) -> dict:
     _check_topic(tenant_id, subject_id, topic_id)
     vid = parse_youtube_id(url)
     title = title or youtube_title(vid) or f"YouTube video {vid}"
     rid = id or new_id("vid")
-    db.execute("INSERT INTO resources(id,tenant_id,subject_id,topic_id,type,title,url,youtube_id,origin,attribution,status,status_detail,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+    db.execute("INSERT INTO resources(id,tenant_id,subject_id,topic_id,type,title,url,youtube_id,origin,attribution,status,status_detail,created_at,updated_at,duration_s) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                (rid, tenant_id, subject_id, topic_id, "video", title, f"https://www.youtube.com/watch?v={vid}", vid, "youtube", attribution,
-                "no_transcript", "Video embedded; no transcript indexed yet, so the agent cannot cite it.", db.now(), db.now()))
+                "no_transcript", "Video embedded; no transcript indexed yet, so the agent cannot cite it.", db.now(), db.now(), duration_s))
     return db.row("SELECT * FROM resources WHERE id=?", (rid,))
 
 
 def public_resource(r: dict) -> dict:
     return {k: r[k] for k in ("id", "subject_id", "topic_id", "type", "title", "url", "youtube_id", "origin", "transcript_origin",
-                              "attribution", "status", "status_detail", "chunk_count")} | {
+                              "attribution", "status", "status_detail", "chunk_count", "duration_s")} | {
         "file_url": f"/api/v1/resources/{r['id']}/file" if r["type"] == "pdf" else None}
 
 

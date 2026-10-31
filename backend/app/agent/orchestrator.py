@@ -17,6 +17,10 @@ MAX_HISTORY = 6
 def to_source(e: dict) -> Source:
     st = e["source_type"]
     ts = e.get("ts_start")
+    if e.get("ts_verified") is False:  # unverified timestamps are never shown as exact citations
+        return Source(source_type=st, source_id=e["source_id"], source_name=e["source_name"], youtube_id=e.get("youtube_id"),
+                      url=f"https://www.youtube.com/watch?v={e['youtube_id']}" if e.get("youtube_id") else None, trust=e.get("trust", "curated"),
+                      origin="timestamp_unverified", excerpt=e["text"][:220].strip(), chunk_id=e.get("chunk_id"))
     return Source(
         source_type=st, source_id=e["source_id"], source_name=e["source_name"], page=e.get("page"),
         timestamp_start=ts, timestamp_end=e.get("ts_end"), youtube_id=e.get("youtube_id"),

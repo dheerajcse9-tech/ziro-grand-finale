@@ -33,7 +33,7 @@ def index_resource(resource_id: str, force: bool = False) -> dict:
             # unchanged content: do not re-embed. Verify vectors still exist.
             set_status(resource_id, "indexed", "Unchanged; embeddings reused.", chunk_count=len(chunks), content_hash=h)
             return db.row("SELECT * FROM resources WHERE id=?", (resource_id,))
-        vectorstore.delete_source(r["tenant_id"], resource_id)
+        vectorstore.delete_source(r["tenant_id"], resource_id, keep_kind="segment")
         items = []
         for i, c in enumerate(chunks):
             items.append({
@@ -43,7 +43,7 @@ def index_resource(resource_id: str, force: bool = False) -> dict:
                     "source_id": resource_id, "source_type": r["type"], "source_name": r["title"],
                     "subject_id": r["subject_id"], "topic_id": r["topic_id"], "trust": "curated",
                     "origin": r["transcript_origin"] if r["type"] == "video" else r["origin"],
-                    "page": c.page, "ts_start": c.start, "ts_end": c.end, "youtube_id": r["youtube_id"],
+                    "kind": "chunk", "ts_verified": True, "page": c.page, "ts_start": c.start, "ts_end": c.end, "youtube_id": r["youtube_id"],
                 },
             })
         vectorstore.upsert(r["tenant_id"], items)

@@ -57,9 +57,13 @@ def upsert(tenant_id: str, items: list[dict]) -> None:
         raise VectorStoreError(f"Vector write failed: {e}") from e
 
 
-def delete_source(tenant_id: str, source_id: str) -> None:
+def delete_source(tenant_id: str, source_id: str, kind: str | None = None, keep_kind: str | None = None) -> None:
+    """Delete a source's vectors; optionally only one kind, or everything except `keep_kind` (e.g. keep segment vectors)."""
     try:
-        _collection().delete(where=_where(tenant_id, {"source_id": source_id}))
+        w = _where(tenant_id, {"source_id": source_id, "kind": kind})
+        if keep_kind:
+            w = {"$and": [w, {"kind": {"$ne": keep_kind}}]}
+        _collection().delete(where=w)
     except VectorStoreError:
         raise
     except Exception as e:
