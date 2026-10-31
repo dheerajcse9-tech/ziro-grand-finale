@@ -97,3 +97,11 @@ def get_config(t: str = Depends(tenant)):
 @router.put("/config", response_model=DomainConfig)
 def put_config(cfg: DomainConfig, t: str = Depends(tenant)):
     return save_config(t, cfg)
+
+
+@router.get("/sessions/{session_id}/messages", summary="Conversation history for a session")
+def session_messages(session_id: str, t: str = Depends(tenant)):
+    out = []
+    for m in db.rows("SELECT role, content, payload, created_at FROM messages WHERE tenant_id=? AND session_id=? ORDER BY created_at, id", (t, session_id)):
+        out.append({"role": m["role"], "content": m["content"], "response": db.loads(m["payload"]) if m["payload"] else None, "created_at": m["created_at"]})
+    return out
