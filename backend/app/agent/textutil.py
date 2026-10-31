@@ -38,13 +38,36 @@ def sentences(t: str) -> list[str]:
     return [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", t) if len(s.strip()) > 15]
 
 
+def term_match(q: str, have: set[str]) -> bool:
+    """Exact stem match, or one stem containing the other when they are close in length (schedul/schedule), never 'every'/'everyday'."""
+    return q in have or any(min(len(q), len(h)) >= 5 and (h.startswith(q) or q.startswith(h)) and min(len(q), len(h)) / max(len(q), len(h)) >= 0.75 for h in have)
+
+
 def coverage(question_terms: set[str], texts: list[str]) -> float:
     if not question_terms:
         return 0.0
     have = set().union(*[terms(x) for x in texts]) if texts else set()
-    # prefix match tolerates inflection (schedule/scheduling)
-    hit = sum(1 for q in question_terms if q in have or any(h.startswith(q[:5]) and len(q) >= 5 for h in have))
+    hit = sum(1 for q in question_terms if term_match(q, have))
     return round(hit / len(question_terms), 3)
+
+
+def idf_weights(qterms: set[str], texts: list[str]) -> dict[str, float]:
+    """Rarer question terms (within the candidate pool) get more weight: log(1 + n / (1 + df))."""
+    import math
+    sets = [terms(t) for t in texts]
+    out = {}
+    for q in qterms:
+        df = sum(1 for st in sets if term_match(q, st))
+        out[q] = math.log(1 + len(sets) / (1 + df)) if df else 0.0  # terms found nowhere cannot discriminate between candidates
+    return out
+
+
+def weighted_coverage(qterms: set[str], text: str, idf: dict[str, float]) -> float:
+    total = sum(idf.values())
+    if not total:
+        return 0.0
+    have = terms(text)
+    return sum(w for q, w in idf.items() if term_match(q, have)) / total
 
 
 def injection_hits(text: str) -> list[str]:
@@ -69,13 +92,13 @@ def _numbers(sentence: str) -> list[tuple[int, set[str]]]:
     out = []
     for i, w in enumerate(toks):
         n = NUMBER_WORDS.get(w, int(w) if w.isdigit() else None)
-        if n is not None and n >= 2:  # 'one'/'at least one' are quantifiers, not counts
+        if n is not None and 2 <= n <= 10:  # small counts only; 'one' is a quantifier, larger numbers are usually examples
             out.append((n, {stem(x) for x in toks[i + 1:i + 3] if x not in STOP}))
     return out
 
 
 def find_contradiction(evidence: list[dict]) -> str | None:
-    """Heuristic cross-source conflict check (numeric or negation disagreement on overlapping claims)."""
+    """Heuristic cross-source conflict check: different small counts for the same claim. Semantic contradictions need the LLM (Gemini) assessor."""
     sents = [(e, s, terms(s)) for e in evidence for s in sentences(e["text"])]
     for i, (e1, s1, t1) in enumerate(sents):
         for e2, s2, t2 in sents[i + 1:]:
@@ -89,7 +112,4 @@ def find_contradiction(evidence: list[dict]) -> str | None:
                 for b, cb in n2:
                     if a != b and ca & cb:
                         return f'"{e1["source_name"]}" and "{e2["source_name"]}" give different numbers ({a} vs {b}) for the same claim'
-            neg1, neg2 = bool(NEGATIONS & set(tokens(s1))), bool(NEGATIONS & set(tokens(s2)))
-            if neg1 != neg2 and shared >= 4 and shared / min(len(t1), len(t2)) >= 0.7:
-                return f'"{e1["source_name"]}" and "{e2["source_name"]}" disagree on the same statement'
     return None

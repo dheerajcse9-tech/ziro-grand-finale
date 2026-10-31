@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from . import db
 from .config import get_settings
-from .routers import agent, content
+from .routers import agent, content, evaluation
 
 
 @asynccontextmanager
@@ -39,3 +39,4 @@ def health():
 
 app.include_router(content.router)
 app.include_router(agent.router)
+app.include_router(evaluation.router)

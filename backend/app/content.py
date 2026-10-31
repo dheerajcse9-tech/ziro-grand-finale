@@ -35,7 +35,7 @@ def youtube_title(video_id: str) -> str | None:
 def create_subject(tenant_id: str, name: str, description: str = "", id: str | None = None) -> dict:
     sid = id or new_id("subj")
     db.execute("INSERT INTO subjects(id,tenant_id,name,description,created_at) VALUES(?,?,?,?,?)", (sid, tenant_id, name, description, db.now()))
-    return db.row("SELECT * FROM subjects WHERE id=?", (sid,))
+    return db.row("SELECT * FROM subjects WHERE id=? AND tenant_id=?", (sid, tenant_id))
 
 
 def create_topic(tenant_id: str, subject_id: str, name: str, description: str = "", sample_questions: list[str] | None = None, id: str | None = None) -> dict:

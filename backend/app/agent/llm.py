@@ -138,24 +138,18 @@ class LocalProvider(LLMProvider):
 
     def compose(self, question, evidence, cfg):
         qt = tu.terms(question)
-        pref = {"resolution": 0, "pdf": 1, "video": 2}
-        scored = []
-        for rank, e in enumerate(evidence):
-            for pos, s in enumerate(tu.sentences(e["text"])):
-                ov = len(tu.terms(s) & qt)
-                if ov:
-                    scored.append((pref.get(e["source_type"], 3), -ov, rank, pos, s, e["ref"]))
-        scored.sort()
-        picked, cited, total = [], [], 0
-        chosen = []
-        for _, _, rank, pos, s, ref in scored:
-            if total + len(s) > 650 or any(s == c[2] for c in chosen):
-                continue
-            chosen.append((rank, pos, s)); total += len(s)
-            if ref not in cited:
-                cited.append(ref)
-            if len(chosen) == 4:
-                break
+        idf = tu.idf_weights(qt, [e["text"] for e in evidence])
+        cited, total, chosen, seen = [], 0, [], set()
+        for rank, e in enumerate(evidence[:2]):  # evidence is already hybrid-ranked; use the best two chunks
+            sents = tu.sentences(e["text"])
+            scored = sorted(((-sum(w for q, w in idf.items() if q in tu.terms(s)), pos) for pos, s in enumerate(sents)))
+            best = [pos for sc, pos in scored if sc < 0][:3]
+            keep = sorted({p for pos in best[:1] for p in (pos - 1, pos, pos + 1) if 0 <= p < len(sents)} | set(best))
+            for p_ in keep:
+                if sents[p_] not in seen and total + len(sents[p_]) <= 700:
+                    seen.add(sents[p_]); chosen.append((rank, p_, sents[p_])); total += len(sents[p_])
+            if keep and e["ref"] not in cited:
+                cited.append(e["ref"])
         picked = [c[2] for c in sorted(chosen)]  # reading order within the evidence ranking
         if not picked:
             return {"answer": None, "cited_ids": []}

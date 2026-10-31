@@ -7,8 +7,8 @@ from typing import Any, Iterable
 from .config import get_settings
 
 SCHEMA = """
-CREATE TABLE IF NOT EXISTS subjects(id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, name TEXT NOT NULL, description TEXT DEFAULT '', created_at REAL);
-CREATE TABLE IF NOT EXISTS topics(id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, subject_id TEXT NOT NULL, name TEXT NOT NULL, description TEXT DEFAULT '', position INTEGER DEFAULT 0, sample_questions TEXT DEFAULT '[]', created_at REAL);
+CREATE TABLE IF NOT EXISTS subjects(id TEXT NOT NULL, tenant_id TEXT NOT NULL, name TEXT NOT NULL, description TEXT DEFAULT '', created_at REAL, PRIMARY KEY(tenant_id, id));
+CREATE TABLE IF NOT EXISTS topics(id TEXT NOT NULL, tenant_id TEXT NOT NULL, subject_id TEXT NOT NULL, name TEXT NOT NULL, description TEXT DEFAULT '', position INTEGER DEFAULT 0, sample_questions TEXT DEFAULT '[]', created_at REAL, PRIMARY KEY(tenant_id, id));
 CREATE TABLE IF NOT EXISTS resources(
   id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, subject_id TEXT NOT NULL, topic_id TEXT NOT NULL,
   type TEXT NOT NULL, title TEXT NOT NULL, url TEXT, file_path TEXT, youtube_id TEXT,

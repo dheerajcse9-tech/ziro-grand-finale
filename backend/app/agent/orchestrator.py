@@ -98,7 +98,7 @@ class Orchestrator:
 
         r_solved = call_tool("search_solved_doubts", ctx, query=question, k=3)
         step("tool.search_solved_doubts", f"{len(r_solved.data or [])} approved resolutions" if r_solved.ok else r_solved.error, ok=r_solved.ok)
-        r_kb = call_tool("search_knowledge_base", ctx, query=question, k=cfg.top_k, subject_id=req.subject_id)
+        r_kb = call_tool("search_knowledge_base", ctx, query=question, k=cfg.top_k * 2, subject_id=req.subject_id)  # wide candidate pool; hybrid re-ranking trims it
         step("tool.search_knowledge_base", f"{len(r_kb.data or [])} chunks retrieved" if r_kb.ok else r_kb.error, ok=r_kb.ok)
         if not r_kb.ok:
             retrieval_error = r_kb.error
@@ -108,6 +108,7 @@ class Orchestrator:
         # STEP 5: evaluate evidence (deterministic filtering, then LLM/heuristic assessment)
         t = cfg.thresholds
         ev, quarantined = [], 0
+        idf = tu.idf_weights(qterms, [h["text"] for h in kb])
         for h in kb:
             if h["similarity"] < t.min_relevance or tu.coverage(qterms, [h["text"]]) == 0:
                 continue
@@ -115,7 +116,8 @@ class Orchestrator:
                 quarantined += 1
                 continue
             ev.append(h)
-        ev.sort(key=lambda h: -(h["similarity"] + (0.03 if req.topic_id and h.get("topic_id") == req.topic_id else 0)))
+        # hybrid rank: semantic similarity + IDF-weighted lexical coverage of the question's key terms (+ small active-topic boost)
+        ev.sort(key=lambda h: -(h["similarity"] + 0.3 * tu.weighted_coverage(qterms, h["text"], idf) + (0.03 if req.topic_id and h.get("topic_id") == req.topic_id else 0)))
         ev = ev[:5]
         for i, e in enumerate(ev):
             e["ref"] = f"E{i + 1}"

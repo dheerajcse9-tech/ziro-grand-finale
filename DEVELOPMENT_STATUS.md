@@ -8,7 +8,8 @@ Python env: `uv venv --python 3.12 backend/.venv && uv pip install --python back
 |---|-----------|--------|--------|
 | 1 | Backend foundation (config, SQLite schema, /health) | done | c5b1924 |
 | 2 | PDF/transcript ingestion, Chroma retrieval, OS seed data (4 topics, 4 PDFs, 5 videos w/ real captions) | done, 4 tests | 9dd9bb6 |
-| 3 | Agent engine (orchestrator, 4 tools, policy, memory, approval, REST API) | done, 11 tests pass | see git log |
+| 3 | Agent engine (orchestrator, 4 tools, policy, memory, approval, REST API) | done, 11 tests pass | acc0393 |
+| 4 | Evaluation framework (18 cases, runner, API) | done; last real run in local-demo mode: 17/18 pass | see git log |
 
 ## Decisions
 - Python 3.12 venv (3.14 lacks torch/chroma wheels). Tenant isolation via `tenant_id` on every row and vector.
